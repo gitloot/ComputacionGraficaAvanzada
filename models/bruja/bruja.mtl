@@ -1,0 +1,144 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 16.04.2020 23:31:17
+
+newmtl Colorpiel
+	Ns 12.683858
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.980519 0.980519 0.980519
+	Ks 0.504300 0.283900 0.158200
+	Ke 0.000000 0.000000 0.000000
+	map_Ka cuerpo_initialShadingGroup_BaseColor.png
+	map_Kd cuerpo_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.120482 cuerpo_initialShadingGroup_Height.png
+
+newmtl corset
+	Ns 27.383137
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.052000 0.015965 0.000000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka Corset_ropaa_initialShadingGroup_BaseColor.png
+	map_Kd Corset_ropaa_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.120482 Corset_ropaa_initialShadingGroup_Height.png
+
+newmtl oroo
+	Ns 26.580494
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.500000 0.500000 0.500000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka Goldman_ropaa_initialShadingGroup_BaseColor.png
+	map_Kd Goldman_ropaa_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.020000 Goldman_ropaa_initialShadingGroup_Height.png
+
+newmtl Ropa
+	Ns 44.050304
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.413000 0.000000 0.000000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka RopaTelas_ropaa_initialShadingGroup_BaseColor.png
+	map_Kd RopaTelas_ropaa_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.120482 RopaTelas_ropaa_initialShadingGroup_Height.png
+
+newmtl Peloo
+	Ns 37.741558
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.218000 0.000000 0.000000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka ropaa_initialShadingGroup_Base_Color.png
+	map_Kd ropaa_initialShadingGroup_Base_Color.png
+
+newmtl cuerooo
+	Ns 45.241951
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.005000 0.005000 0.005000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka cuero_initialShadingGroup_BaseColor.png
+	map_Kd cuero_initialShadingGroup_BaseColor.png
+
+newmtl botas
+	Ns 15.289724
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.500000 0.500000 0.500000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka BotasYcuero_initialShadingGroup_BaseColor.png
+	map_Kd BotasYcuero_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.301205 BotasYcuero_initialShadingGroup_Height.png
+
+newmtl basenegro
+	Ns 0.000000
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.000000 0.000000 0.000000
+	Ks 0.000000 0.000000 0.000000
+	Ke 0.000000 0.000000 0.000000
+
+newmtl Basee
+	Ns 26.580494
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.800000 0.800000 0.800000
+	Ks 0.500000 0.500000 0.500000
+	Ke 0.000000 0.000000 0.000000
+	map_Ka baseeee_initialShadingGroup_BaseColor.png
+	map_Kd baseeee_initialShadingGroup_BaseColor.png
+	map_bump -bm 0.060241 baseeee_initialShadingGroup_Height.png
+
+newmtl Varamagica
+	Ns 11.063038
+	Ni 1.500000
+	d 1.000000
+	Tr 0.000000
+	Tf 1.000000 1.000000 1.000000 
+	illum 2
+	Ka 0.000000 0.000000 0.000000
+	Kd 0.129870 0.039872 0.000000
+	Ks 0.161000 0.049430 0.000000
+	Ke 0.000000 0.000000 0.000000
