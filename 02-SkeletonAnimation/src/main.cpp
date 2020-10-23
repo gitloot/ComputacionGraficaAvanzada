@@ -84,6 +84,7 @@ Model modelDartLegoRightLeg;
 // Mayow
 Model mayowModelAnimate;
 Model modelDragonite;
+Model modelKizunaAI;
 
 GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint skyboxTextureID;
@@ -96,12 +97,19 @@ GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
 GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
 GL_TEXTURE_CUBE_MAP_NEGATIVE_Z };
 
-std::string fileNames[6] = { "../Textures/mp_bloodvalley/blood-valley_ft.tga",
+std::string fileNames[6] = { "../Textures/skybox2/skybox2_px.jpg",  
+							"../Textures/skybox2/skybox2_nx.jpg",  //
+							"../Textures/skybox2/skybox2_py.jpg",
+							"../Textures/skybox2/skybox2_ny.jpg",
+							"../Textures/skybox2/skybox2_pz.jpg",  //
+							"../Textures/skybox2/skybox2_nz.jpg"};
+	
+	/* "../Textures/mp_bloodvalley/blood-valley_ft.tga",
 		"../Textures/mp_bloodvalley/blood-valley_bk.tga",
 		"../Textures/mp_bloodvalley/blood-valley_up.tga",
 		"../Textures/mp_bloodvalley/blood-valley_dn.tga",
 		"../Textures/mp_bloodvalley/blood-valley_rt.tga",
-		"../Textures/mp_bloodvalley/blood-valley_lf.tga" };
+		"../Textures/mp_bloodvalley/blood-valley_lf.tga" };*/
 
 bool exitApp = false;
 int lastMousePosX, offsetX = 0;
@@ -117,6 +125,7 @@ glm::mat4 modelMatrixDart = glm::mat4(1.0f);
 glm::mat4 modelMatrixMayow = glm::mat4(1.0f);
 
 glm::mat4 modelMatrixDragonite = glm::mat4(1.0);
+glm::mat4 modelMatrixKizunaAI = glm::mat4(1.0);
 
 float rotDartHead = 0.0, rotDartLeftArm = 0.0, rotDartLeftHand = 0.0, rotDartRightArm = 0.0, rotDartRightHand = 0.0, rotDartLeftLeg = 0.0, rotDartRightLeg = 0.0;
 int modelSelected = 0;
@@ -151,6 +160,10 @@ float dorRotCount = 0.0;
 
 double deltaTime;
 double currTime, lastTime;
+
+//Var kizuna animacion
+int numAnimacion = 0;
+float rotKizuna = 0.0f;
 
 // Se definen todos las funciones.
 void reshapeCallback(GLFWwindow *Window, int widthRes, int heightRes);
@@ -298,6 +311,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	//Dragonite
 	modelDragonite.loadModel("../models/mayow/Dragonite.fbx");
 	modelDragonite.setShader(&shaderMulLighting);
+
+	//Kizuna AI
+	modelKizunaAI.loadModel("../models/kizunaAI/kizunaAiS.fbx");
+	modelKizunaAI.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 3.0, 4.0));
 
@@ -613,7 +630,7 @@ bool processInput(bool continueApplication) {
 	if (enableCountSelected && glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS){
 		enableCountSelected = false;
 		modelSelected++;
-		if(modelSelected > 2)
+		if(modelSelected > 3)
 			modelSelected = 0;
 		if(modelSelected == 1)
 			fileName = "../animaciones/animation_dart_joints.txt";
@@ -698,6 +715,27 @@ bool processInput(bool continueApplication) {
 		modelMatrixDart = glm::translate(modelMatrixDart, glm::vec3(-0.02, 0.0, 0.0));
 	else if (modelSelected == 2 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		modelMatrixDart = glm::translate(modelMatrixDart, glm::vec3(0.02, 0.0, 0.0));
+	if (modelSelected == 3 && glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		numAnimacion = 1;
+		rotKizuna = 180.0f;
+	}
+	else if (modelSelected == 3 && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 270.0f;
+	}
+	else if (modelSelected == 3 && glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 90.0f;
+	}
+	else if (modelSelected == 3 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 0.0f;
+	}
+	else if(modelSelected == 3)
+		numAnimacion = 0;
 
 	glfwPollEvents();
 	return continueApplication;
@@ -1013,6 +1051,12 @@ void applicationLoop() {
 		glm::mat4 modelMatrixDragoniteBody = glm::mat4(modelMatrixDragonite);
 		modelMatrixDragoniteBody = glm::scale(modelMatrixDragoniteBody, glm::vec3(0.021, 0.021, 0.021));
 		modelDragonite.render(modelMatrixDragoniteBody);
+
+		glm::mat4 modelMatrixKizunaAIBody = glm::mat4(modelMatrixKizunaAI);
+		modelMatrixKizunaAIBody = glm::scale(modelMatrixKizunaAIBody, glm::vec3(0.005, 0.005, 0.005));
+		modelMatrixKizunaAIBody= glm::rotate(modelMatrixKizunaAIBody, glm::radians(rotKizuna), glm::vec3(0, 1, 0));
+		modelKizunaAI.setAnimationIndex(numAnimacion);
+		modelKizunaAI.render(modelMatrixKizunaAIBody);
 
 		/*******************************************
 		 * Skybox
