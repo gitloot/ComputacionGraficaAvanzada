@@ -81,9 +81,11 @@ Model modelDartLegoRightLeg;
 // Mayow
 Model modelCowboy;
 Model mayowModelAnimate;
+
+Model modelKizunaAI;
 // Terrain model instance
 //Terrain terrain(-1, -1, 200, 8, "../Textures/heightmap.png");
-Terrain terrain(-1, -1, 200, 8, "../Textures/customHeightMap.png");
+Terrain terrain(-1, -1, 200, 25, "../Textures/customHeightMap_2.png");
 GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint skyboxTextureID;
 
@@ -115,6 +117,8 @@ glm::mat4 modelMatrixDart = glm::mat4(1.0f);
 glm::mat4 modelMatrixMayow = glm::mat4(1.0f);
 glm::mat4 modelMatrixCowboy = glm::mat4(1.0f);
 
+glm::mat4 modelMatrixKizunaAI = glm::mat4(1.0);
+
 float rotDartHead = 0.0, rotDartLeftArm = 0.0, rotDartLeftHand = 0.0, rotDartRightArm = 0.0, rotDartRightHand = 0.0, rotDartLeftLeg = 0.0, rotDartRightLeg = 0.0;
 int modelSelected = 0;
 bool enableCountSelected = true;
@@ -145,6 +149,10 @@ float rotHelHelY = 0.0;
 // Var animate lambo dor
 int stateDoor = 0;
 float dorRotCount = 0.0;
+
+//Var kizuna animacion
+int numAnimacion = 0;
+float rotKizuna = 0.0f;
 
 double deltaTime;
 double currTime, lastTime;
@@ -278,6 +286,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 
 	modelCowboy.loadModel("../models/cowboy/Character Running.fbx");
 	modelCowboy.setShader(&shaderMulLighting);
+
+	//Kizuna AI
+	modelKizunaAI.loadModel("../models/kizunaAI/kizunaAiSW.fbx");
+	modelKizunaAI.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 3.0, 4.0));
 
@@ -513,6 +525,9 @@ void destroy() {
 	// Custom objects animate
 	mayowModelAnimate.destroy();
 
+	//Kizuna
+	modelKizunaAI.destroy();
+
 	// Textures Delete
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glDeleteTextures(1, &textureCespedID);
@@ -589,7 +604,7 @@ bool processInput(bool continueApplication) {
 	if (enableCountSelected && glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS){
 		enableCountSelected = false;
 		modelSelected++;
-		if(modelSelected > 3)
+		if(modelSelected > 4)
 			modelSelected = 0;
 		if(modelSelected == 1)
 			fileName = "../animaciones/animation_dart_joints.txt";
@@ -683,6 +698,33 @@ bool processInput(bool continueApplication) {
 		modelMatrixCowboy = glm::translate(modelMatrixCowboy, glm::vec3(0.0, 0.0, -0.02));
 	else if (modelSelected == 3 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		modelMatrixCowboy = glm::translate(modelMatrixCowboy, glm::vec3(0.0, 0.0, 0.02));
+
+	//Kizuna
+	if (modelSelected == 4 && glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+		numAnimacion = 1;
+		rotKizuna = 180.0f;
+		modelMatrixKizunaAI = glm::translate(modelMatrixKizunaAI, glm::vec3(0.0, 0.0, -0.005));
+	}
+	else if (modelSelected == 4 && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 270.0f;
+		modelMatrixKizunaAI = glm::translate(modelMatrixKizunaAI, glm::vec3(-0.005, 0.0, 0.0));
+	}
+	else if (modelSelected == 4 && glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 90.0f;
+		modelMatrixKizunaAI = glm::translate(modelMatrixKizunaAI, glm::vec3(0.005, 0.0, 0.0));
+	}
+	else if (modelSelected == 4 && glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	{
+		numAnimacion = 1;
+		rotKizuna = 0.0f;
+		modelMatrixKizunaAI = glm::translate(modelMatrixKizunaAI, glm::vec3(0.0, 0.0, 0.005));
+	}
+	else if (modelSelected == 4)
+		numAnimacion = 0;
 
 	glfwPollEvents();
 	return continueApplication;
@@ -888,6 +930,16 @@ void applicationLoop() {
 		glm::mat4 modelMatrixCowboyBody = glm::mat4(modelMatrixCowboy);
 		modelMatrixCowboy = glm::scale(modelMatrixCowboyBody, glm::vec3(0.05, 0.05, 0.05));
 		modelCowboy.render(modelMatrixCowboyBody);
+
+		//Kizuna
+
+		modelMatrixKizunaAI[3][1] = terrain.getHeightTerrain(modelMatrixKizunaAI[3][0], modelMatrixKizunaAI[3][2]);
+		glm::mat4 modelMatrixKizunaAIBody = glm::mat4(modelMatrixKizunaAI);
+		modelMatrixKizunaAIBody = glm::scale(modelMatrixKizunaAIBody, glm::vec3(0.0025, 0.0025, 0.0025));
+		modelMatrixKizunaAIBody = glm::rotate(modelMatrixKizunaAIBody, glm::radians(rotKizuna), glm::vec3(0, 1, 0));
+		modelKizunaAI.setAnimationIndex(numAnimacion);
+		modelKizunaAI.render(modelMatrixKizunaAIBody);
+
 		/*******************************************
 		 * Skybox
 		 *******************************************/
