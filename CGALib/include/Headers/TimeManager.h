@@ -44,6 +44,8 @@ public:
 	double GetTime();
 
 	void Sleep(int milliseconds);
+	//5 de nov
+	void resetStartTime();
 
 	double DeltaTime = 0;
 	double StartTime = 0;
