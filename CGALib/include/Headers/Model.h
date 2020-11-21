@@ -55,6 +55,8 @@ public:
 	}
 	void setAnimationIndex(int animationIndex){
 		this->animationIndex = animationIndex;
+		//5 nov
+		//TimeManager::Instance().resetStartTime();
 	}
 private:
 	void processNode(aiNode* node, const aiScene* scene);
