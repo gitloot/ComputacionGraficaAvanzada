@@ -1440,13 +1440,13 @@ void applicationLoop() {
 		//kizuna collider
 		AbstractModel::OBB kizunaCollider;
 		glm::mat4 modelMatrixColliderKizuna = glm::mat4(modelMatrixKizuna);
-		//modelMatrixColliderKizuna = glm::rotate(modelMatrixColliderKizuna, glm::radians(rotKizuna), glm::vec3(1.0, 0.0, 0.0));
+		//modelMatrixColliderKizuna = glm::rotate(modelMatrixColliderKizuna, glm::radians(-90.0f), glm::vec3(1.0, 0.0, 0.0));
 		//Antes de escalar la matriz del collider hay que obtener la orientacion
 		kizunaCollider.u = glm::quat_cast(modelMatrixColliderKizuna);
 		modelMatrixColliderKizuna = glm::scale(modelMatrixColliderKizuna, glm::vec3(0.0025, 0.0025, 0.0025));
 		modelMatrixColliderKizuna = glm::translate(modelMatrixColliderKizuna, kizunaAIModelAnimate.getObb().c);
 		kizunaCollider.c = modelMatrixColliderKizuna[3];
-		kizunaCollider.e = kizunaAIModelAnimate.getObb().e * glm::vec3(0.0025, 0.0025, 0.0025) * glm::vec3(1.5, 4.0, 1.0);;
+		kizunaCollider.e = kizunaAIModelAnimate.getObb().e * glm::vec3(0.0025, 0.0025, 0.0025) * glm::vec3(1.5, 25.0, 0.75);;
 		addOrUpdateColliders(collidersOBB, "kizuna", kizunaCollider, modelMatrixKizuna);
 
 		//lambo collider
