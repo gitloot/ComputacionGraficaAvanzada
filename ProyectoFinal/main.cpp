@@ -192,7 +192,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	terrain.setPosition(glm::vec3(100, 0, 100));
 
 	//Fighter01
-	modelFighter01.loadModel("../models/ProyFinalModels/fighter01.fbx");//("../models/ProyFinalModels/fighter01.fbx");
+	modelFighter01.loadModel("../models/ProyFinalModels/fighter05/fighter05.fbx");//("../models/ProyFinalModels/fighter01.fbx");
 	modelFighter01.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 0.0, 10.0));
