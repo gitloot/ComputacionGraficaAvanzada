@@ -41,15 +41,19 @@ void ThirdPersonCamera::updateCamera(){
     //Calculate Vertical distance
     float verticalDistance = distanceFromTarget * sin(pitch);
 
+	//Adicional: Se implemento para evitar el pantallazo azul
+	if (isnan(angleTarget))
+		angleTarget = 0.0f;
+
     //Calculate camera position
-    float theta = angleTarget + angleAroundTarget;
+	float theta = angleTarget + angleAroundTarget;
     float offsetx = horizontalDistance * sin(theta);
     float offsetz = horizontalDistance * cos(theta);
-    position.x = cameraTarget.x - offsetx;
-    position.z = cameraTarget.z - offsetz;
+	position.x = cameraTarget.x - offsetx;
+	position.z = cameraTarget.z - offsetz;
     position.y = cameraTarget.y + verticalDistance;
 
-    yaw = angleTarget - (180 + angleAroundTarget);
+	yaw = angleTarget - (180 + angleAroundTarget);
 
     if (distanceFromTarget < 0)
     	front = glm::normalize(position - cameraTarget);
