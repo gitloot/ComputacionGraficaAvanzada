@@ -74,6 +74,7 @@ Sphere sphereCollider(10, 10);
 
 // Models complex instances
 Model modelFighter01;
+Model modelFighter02;
 Model modelBarrier1;
 Model modelPortal;
 
@@ -105,6 +106,7 @@ int lastMousePosY, offsetY = 0;
 
 // Model matrix definitions
 glm::mat4 modelMatrixFighter01 = glm::mat4(1.0);
+glm::mat4 modelMatrixFighter02 = glm::mat4(1.0);
 
 // Model barrier type 1 positions
 std::vector<glm::vec3> barrier1Position = {
@@ -149,7 +151,8 @@ std::vector<float> barrier1Orientation2 = {
 
 //Blending model sin orden (c)
 std::map<std::string, glm::vec3> blendingSinOrden = {
-	{"fighter01", glm::vec3(70.8984375, 0, -2.34375)}
+	{"fighter01", glm::vec3(70.8984375, 0, -2.34375)},
+	{"fighter02", glm::vec3(70.8984375, 0, -1.34375)}
 };
 
 double deltaTime;
@@ -260,12 +263,16 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	modelFighter01.loadModel("../models/ProyFinalModels/fighter01/fighter01.fbx");//("../models/ProyFinalModels/fighter01.fbx");
 	modelFighter01.setShader(&shaderMulLighting);
 
+	//Fighter02
+	modelFighter02.loadModel("../models/ProyFinalModels/fighter02/fighter02.fbx");//("../models/ProyFinalModels/fighter01.fbx");
+	modelFighter02.setShader(&shaderMulLighting);
+
 	//Barrier
 	modelBarrier1.loadModel("../models/ProyFinalModels/barrier/barrier2.fbx");//("../models/ProyFinalModels/fighter01.fbx");
 	modelBarrier1.setShader(&shaderMulLighting);
 
 	//Portal
-	modelPortal.loadModel("../models/railroad/railroad_track.obj");
+	modelPortal.loadModel("../models/ProyFinalModels/portal/portal.fbx");
 	modelPortal.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 0.0, 10.0));
@@ -657,6 +664,7 @@ void destroy() {
 
 	// Custom objects Delete
 	modelFighter01.destroy();
+	modelFighter02.destroy();
 	modelBarrier1.destroy();
 	modelPortal.destroy();
 
@@ -802,9 +810,19 @@ void applicationLoop() {
 	glm::vec3 axis;
 	glm::vec3 target;
 	float angleTarget;
+	
+	//Variables adicionales
+	float distance = 0.0f;
+	glm::vec3 objetivoPos;
+	glm::vec3 objetoPos;
+	glm::vec3 diferencia;
 
 	modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(70.8984375, 0, -2.34375));
 	modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(180.0f), glm::vec3(0, 1, 0));
+	modelMatrixFighter02 = glm::translate(modelMatrixFighter02, glm::vec3(70.8984375, 0, -1.34375));
+	modelMatrixFighter02 = glm::rotate(modelMatrixFighter02, glm::radians(180.0f), glm::vec3(0, 1, 0));
+
+	objetivoPos = modelMatrixFighter01[3];
 
 	lastTime = TimeManager::Instance().GetTime();
 
@@ -1013,10 +1031,10 @@ void applicationLoop() {
 		}
 
 		//Render portal
-		float portalY = terrain.getHeightTerrain(modelPortal.getPosition().x, modelPortal.getPosition().z);
-		modelPortal.setPosition(glm::vec3(0.5859375f, portalY, -79.4921875f));
-		modelPortal.setScale(glm::vec3(1.0f, 1.0f, 4.0f));
-		modelPortal.setOrientation(glm::vec3(0.0f, 90.0f, 0.0f));
+		float portalY = terrain.getHeightTerrain(modelPortal.getPosition().x, modelPortal.getPosition().z) + 30.0f;
+		modelPortal.setPosition(glm::vec3(5.0f, portalY, -107.5f)); //540,40
+		modelPortal.setScale(glm::vec3(0.1f, 0.1f, 0.1f));
+		modelPortal.setOrientation(glm::vec3(0.0f, -80.0f, 0.0f));
 		modelPortal.render();
 
 		/*******************************************
@@ -1040,6 +1058,7 @@ void applicationLoop() {
 		***********************/
 		//Se actualiza el fighter
 		blendingSinOrden.find("fighter01")->second = glm::vec3(modelMatrixFighter01[3]);
+		blendingSinOrden.find("fighter02")->second = glm::vec3(modelMatrixFighter02[3]);
 		
 		/*********************
 		* Se ordena los objetos con el canal alfa
@@ -1065,6 +1084,14 @@ void applicationLoop() {
 				glm::mat4 modelMatrixFighter01Chasis = glm::mat4(modelMatrixFighter01);
 				modelMatrixFighter01Chasis = glm::scale(modelMatrixFighter01Chasis, glm::vec3(0.5, 0.5, 0.5));
 				modelFighter01.render(modelMatrixFighter01Chasis);
+
+			}
+			if (it->second.first.compare("fighter02") == 0) {
+				// Render for the fighter model
+				modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
+				glm::mat4 modelMatrixFighter02Chasis = glm::mat4(modelMatrixFighter02);
+				modelMatrixFighter02Chasis = glm::scale(modelMatrixFighter02Chasis, glm::vec3(0.5, 0.5, 0.5));
+				modelFighter02.render(modelMatrixFighter02Chasis);
 
 			}
 		}
@@ -1125,14 +1152,14 @@ void applicationLoop() {
 		AbstractModel::OBB portalCollider;
 		glm::mat4 modelMatrixColliderPortal = glm::mat4(1.0);
 		modelMatrixColliderPortal = glm::translate(modelMatrixColliderPortal, modelPortal.getPosition());
-		modelMatrixColliderPortal = glm::rotate(modelMatrixColliderPortal, glm::radians(90.0f), glm::vec3(0, 1, 0));
+		modelMatrixColliderPortal = glm::rotate(modelMatrixColliderPortal, glm::radians(-80.0f), glm::vec3(0, 1, 0));
 		addOrUpdateColliders(collidersOBB, "portal", portalCollider, modelMatrixColliderPortal);
 		// Set the orientation of collider before doing the scale
 		portalCollider.u = glm::quat_cast(modelMatrixColliderPortal);
-		modelMatrixColliderPortal = glm::scale(modelMatrixColliderPortal, glm::vec3(1.0f, 1.0f, 4.0f));
+		modelMatrixColliderPortal = glm::scale(modelMatrixColliderPortal, glm::vec3(0.1f, 0.1f, 0.1f));
 		modelMatrixColliderPortal = glm::translate(modelMatrixColliderPortal, modelPortal.getObb().c);
 		portalCollider.c = glm::vec3(modelMatrixColliderPortal[3]);
-		portalCollider.e = modelPortal.getObb().e * (glm::vec3(1.0f, 1.0f, 4.0f));
+		portalCollider.e = modelPortal.getObb().e * glm::vec3(0.1f, 0.1f, 0.1f);
 		addOrUpdateColliders(collidersOBB, "portal", portalCollider, modelMatrixColliderPortal);
 
 		 /*******************************************
@@ -1264,6 +1291,24 @@ void applicationLoop() {
 					}
 				}
 			}
+		}
+
+		//Rutina de los NPC
+		objetoPos = modelMatrixFighter02[3];
+		distance = (objetoPos.x - objetivoPos.x) * (objetoPos.x - objetivoPos.x) + (objetoPos.z - objetivoPos.z) * (objetoPos.z - objetivoPos.z);
+		if (distance < 0.5f) {
+			objetivoPos = modelMatrixFighter01[3];
+			//std::cout << "Diferencia " << modelFighter01.getPosition().x << modelFighter01.getPosition().y << modelFighter01.getPosition().z << std::endl;
+			//std::cout << "Distancia " << distance << std::endl;
+		}
+		else {
+			diferencia = objetoPos - objetivoPos;
+			diferencia = diferencia / distance;
+			//std::cout << "Diferencia " << diferencia.x << diferencia.y << diferencia.z << std::endl;
+			//std::cout << "Distancia " << distance << std::endl;
+			modelMatrixFighter02 = glm::translate(modelMatrixFighter02, diferencia);
+			modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
+
 		}
 
 		glfwSwapBuffers(window);

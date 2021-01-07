@@ -90,8 +90,10 @@ Model modelDartLegoRightLeg;
 Model modelLamp1;
 Model modelLamp2;
 Model modelLampPost2;
-//Modelo de hierba transparente
+// Modelo de hierba transparente
 Model modeloHierba;
+// Modelo del objeto con transparencia
+Model modelFighter01;
 // Model animate instance
 // Mayow
 Model mayowModelAnimate;
@@ -128,6 +130,7 @@ glm::mat4 modelMatrixLambo = glm::mat4(1.0);
 glm::mat4 modelMatrixAircraft = glm::mat4(1.0);
 glm::mat4 modelMatrixDart = glm::mat4(1.0f);
 glm::mat4 modelMatrixMayow = glm::mat4(1.0f);
+glm::mat4 modelMatrixFighter01 = glm::mat4(1.0f);
 
 int animationIndex = 1;
 float rotDartHead = 0.0, rotDartLeftArm = 0.0, rotDartLeftHand = 0.0, rotDartRightArm = 0.0, rotDartRightHand = 0.0, rotDartLeftLeg = 0.0, rotDartRightLeg = 0.0;
@@ -173,7 +176,8 @@ std::vector<float> lamp2Orientation = {21.37 + 90, -65.0 + 90};
 std::map<std::string, glm::vec3> blendingSinOrden = {
 	{"aircraft", glm::vec3(0, 0, 0)},
 	{"heli", glm::vec3(0, 0, 0)},
-	{"lambo", glm::vec3(0, 0, 0)}
+	{"lambo", glm::vec3(0, 0, 0)},
+    {"fighter01", glm::vec3(0, 0, 0)}
 };
 
 double deltaTime;
@@ -328,6 +332,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 
 	modeloHierba.loadModel("../models/grass/grassModel.obj");
 	modeloHierba.setShader(&shaderMulLighting);
+
+	//Fighter01
+	modelFighter01.loadModel("../models/ProyFinalModels/fighter01/fighter01.fbx");
+	modelFighter01.setShader(&shaderMulLighting);
 
 	//Mayow
 	mayowModelAnimate.loadModel("../models/mayow/personaje2.fbx");
@@ -732,6 +740,7 @@ void destroy() {
 	modelLamp2.destroy();
 	modelLampPost2.destroy();
 	modeloHierba.destroy();
+	modelFighter01.destroy();
 
 	// Custom objects animate
 	mayowModelAnimate.destroy();
@@ -940,6 +949,8 @@ void applicationLoop() {
 
 	modelMatrixMayow = glm::translate(modelMatrixMayow, glm::vec3(13.0f, 0.05f, -5.0f));
 	modelMatrixMayow = glm::rotate(modelMatrixMayow, glm::radians(-90.0f), glm::vec3(0, 1, 0));
+	
+	modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(5.0, 0.0, 5.0));
 
 	// Variables to interpolation key frames
 	fileName = "../animaciones/animation_dart_joints.txt";
@@ -1260,6 +1271,7 @@ void applicationLoop() {
 		blendingSinOrden.find("aircraft")->second = glm::vec3(modelMatrixAircraft[3]);
 		blendingSinOrden.find("heli")->second = glm::vec3(modelMatrixHeli[3]);
 		blendingSinOrden.find("lambo")->second = glm::vec3(modelMatrixLambo[3]);
+		blendingSinOrden.find("fighter01")->second = glm::vec3(modelMatrixFighter01[3]);
 
 		/*********************
 		* Se ordena los objetos con el canal alfa
@@ -1312,6 +1324,13 @@ void applicationLoop() {
 				modelMatrixHeliHeli = glm::rotate(modelMatrixHeliHeli, rotHelHelY, glm::vec3(0, 1, 0));
 				modelMatrixHeliHeli = glm::translate(modelMatrixHeliHeli, glm::vec3(0.0, 0.0, 0.249548));
 				modelHeliHeli.render(modelMatrixHeliHeli);
+			}
+			if (it->second.first.compare("fighter01") == 0) {
+				// Render for the fighter model
+				modelMatrixFighter01[3][1] = terrain.getHeightTerrain(modelMatrixFighter01[3][0], modelMatrixFighter01[3][2]) + 1.0f;
+				glm::mat4 modelMatrixFighter01Chasis = glm::mat4(modelMatrixFighter01);
+				modelMatrixFighter01Chasis = glm::scale(modelMatrixFighter01Chasis, glm::vec3(0.5, 0.5, 0.5));
+				modelFighter01.render(modelMatrixFighter01Chasis);
 			}
 		}
 		glEnable(GL_CULL_FACE);

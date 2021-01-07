@@ -56,6 +56,8 @@ Shader shaderSkybox;
 Shader shaderMulLighting;
 //Shader para el terreno
 Shader shaderTerrain;
+//Shader para la animacion de la fuente de agua
+Shader shaderParticlesFountain;
 
 std::shared_ptr<Camera> camera(new ThirdPersonCamera());
 float distanceFromTarget = 7.0;
@@ -177,11 +179,18 @@ std::vector<float> lamp2Orientation = {21.37 + 90, -65.0 + 90};
 std::map<std::string, glm::vec3> blendingUnsorted = {
 		{"aircraft", glm::vec3(10.0, 0.0, -17.5)},
 		{"lambo", glm::vec3(23.0, 0.0, 0.0)},
-		{"heli", glm::vec3(5.0, 10.0, -5.0)}
+		{"heli", glm::vec3(5.0, 10.0, -5.0)},
+		{"fountain", glm::vec3(5.0, 0.0, -40.0)}
 };
 
 double deltaTime;
 double currTime, lastTime;
+
+// Definir variables para el sistema de particulas
+GLuint initVel, startTime;
+GLuint VAOParticles;
+GLuint nParticles = 6000;
+double currTimeParticlesAnimation, lastTimeParticlesAnimation;
 
 // Colliders
 std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> > collidersOBB;
@@ -194,9 +203,44 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 void mouseCallback(GLFWwindow *window, double xpos, double ypos);
 void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod);
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+void initParticlesBuffers();
 void init(int width, int height, std::string strTitle, bool bFullScreen);
 void destroy();
 bool processInput(bool continueApplication = true);
+
+void initparticlesBuffers() {
+	// Genera los buffers
+	glGenBuffers(1, &initVel); // Se generan para la velocidad inicial
+	glGenBuffers(1, &startTime); // Se genera para el tiempo de inicio
+
+	// Reserva memoria para los buffers
+	int size = nParticles * 3 * sizeof(float);
+	glBindBuffer(GL_ARRAY_BUFFER, initVel);
+	glBufferData(GL_ARRAY_BUFFER, size, NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, startTime);
+	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(float), NULL, GL_STATIC_DRAW);
+
+	// Se genera el buffer de velocidad inicial con velocidades aleatorias
+	glm::vec3 v(0.0f);
+	float velocidad, theta, phi;
+	GLfloat *data = new GLfloat[nParticles * 3];
+	for (unsigned int i = 0; i < nParticles; i++) {
+		theta = glm::mix(0.0f, glm::pi<float>() / 6.0f, ((float) rand / RAND_MAX));
+		phi = glm::mix(0.0f, glm::pi<float>(), ((float)rand / RAND_MAX));
+		v.x = sinf(theta) * cosf(phi);
+		v.y = cosf(theta);
+		v.z = sinf(theta) * sinf(phi);
+
+		velocidad = glm::mix(0.6, 0.8, ((float)rand / RAND_MAX));
+		v = glm::normalize(v) * velocidad;
+
+		data[3 * i] = v.x;
+		data[3 * i + 1] = v.y;
+		data[3 * i + 2] = v.z;
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, initVel);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
+}
 
 // Implementacion de todas las funciones.
 void init(int width, int height, std::string strTitle, bool bFullScreen) {

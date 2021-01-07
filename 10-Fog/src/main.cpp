@@ -928,6 +928,10 @@ void applicationLoop() {
 	glm::vec3 axis;
 	glm::vec3 target;
 	float angleTarget;
+	float tiempoTotal;
+	float density = 0.01f;
+	float gradient = 0.5f;
+	bool flag = false;
 
 	matrixModelRock = glm::translate(matrixModelRock, glm::vec3(-3.0, 0.0, 2.0));
 
@@ -948,6 +952,7 @@ void applicationLoop() {
 	keyFramesDart = getKeyFrames("../animaciones/animation_dart.txt");
 
 	lastTime = TimeManager::Instance().GetTime();
+	tiempoTotal = TimeManager::Instance().GetRunningTime();
 
 	while (psi) {
 		currTime = TimeManager::Instance().GetTime();
@@ -1017,8 +1022,40 @@ void applicationLoop() {
 		* Propiedades de la neblina
 		*******************************************/
 		shaderMulLighting.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
+		shaderMulLighting.setFloat("density", density);
+		shaderMulLighting.setFloat("gradient", gradient);
 		shaderTerrain.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
+		shaderTerrain.setFloat("density", density);
+		shaderTerrain.setFloat("gradient", gradient);
 		shaderSkybox.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
+		shaderSkybox.setFloat("lowerLimit", 0.0);
+		shaderSkybox.setFloat("upperLimit", 0.05);
+		if (tiempoTotal + 30 < TimeManager::Instance().GetRunningTime()) {
+			std::cout << "flag: " << flag << std::endl;
+			if (flag) {
+				if (density < 0.25) {
+					density += 0.005;
+					gradient += 0.05;
+				}
+				else {
+					density -= 0.005;
+					gradient -= 0.05;
+					flag = false;
+				}
+			}
+			else {
+				if (density > 0.05) {
+					density -= 0.005;
+					gradient -= 0.05;
+				}
+				else {
+					density += 0.005;
+					gradient += 0.05;
+					flag = true;
+				}
+			}
+			tiempoTotal = TimeManager::Instance().GetRunningTime();
+		}
 
 		/*******************************************
 		 * Propiedades Luz direccional
