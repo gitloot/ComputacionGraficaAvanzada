@@ -63,8 +63,8 @@ void main()
 
 	    if( VertexAge < 0 || VertexAge > ParticleLifetime ) {
 	        // The particle is past it's lifetime (or not born yet)
-	        //Position = randomInitialPosition(); // PARA EL FUEGO
-			Position = Emitter; // PARA EL HUMO
+	        Position = randomInitialPosition(); // PARA EL FUEGO
+			//Position = Emitter; // PARA EL HUMO
 	        Velocity = randomInitialVelocity2();
 	        if(VertexAge > ParticleLifetime)
 	        	Age = (VertexAge - ParticleLifetime) + DeltaT;

@@ -7,6 +7,10 @@
 #include <string>
 #include <iostream>
 
+// contains new std::shuffle definition
+#include <algorithm>
+#include <random>
+
 //glfw include
 #include <GLFW/glfw3.h>
 
@@ -42,10 +46,18 @@
 // Include Colision headers functions
 #include "Headers/Colisiones.h"
 
+// ShadowBox include
+#include "Headers/ShadowBox.h"
+
+// OpenAL include
+#include <AL/alut.h>
+
 #define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a)/sizeof(a[0]))
 
 int screenWidth;
 int screenHeight;
+
+const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
 GLFWwindow *window;
 
@@ -56,14 +68,74 @@ Shader shaderSkybox;
 Shader shaderMulLighting;
 //Shader para el terreno
 Shader shaderTerrain;
-//Shader para la niebla (a)
-Shader shaderFog;
+//Shader para las particulas de fountain
+Shader shaderParticlesFountain;
+//Shader para las particulas de fuego
+Shader shaderParticlesFire;
+//Shader para visualizar el buffer de profundidad
+Shader shaderViewDepth;
+//Shader para dibujar el buffer de profunidad
+Shader shaderDepth;
 
 std::shared_ptr<Camera> camera(new ThirdPersonCamera());
 //Para la camara en primera persona (b)
 std::shared_ptr<FirstPersonCamera> fpscamera(new FirstPersonCamera());
 
-float distanceFromTarget = 7.0;
+float distanceFromTarget = 2.0;//7.0;
+
+//Variables adicionales
+float distance = 0.0f;
+glm::vec3 objetivoPos;
+glm::vec3 objetoPos;
+glm::vec3 diferencia;
+
+int checkpointFighter02 = 0;
+//float fighter02Rotation = 180.0f;
+float fighter02Speed = 5.0f;
+int checkpointFighter03 = 0;
+//float fighter02Rotation = 180.0f;
+float fighter03Speed = 4.0f;
+int checkpointFighter04 = 0;
+//float fighter02Rotation = 180.0f;
+float fighter04Speed = 4.5f;
+
+//Pathfiding para los NPC
+std::vector<glm::vec3> pathNPC = {
+	glm::vec3(66.015625f, 0.0f, -25.78125f),//850,380 0
+	glm::vec3(61.1328125f, 0.0f, -41.40625f),//825, 300 1 
+	glm::vec3(51.3671875f, 0.0f, -55.078125f),//775, 230 2
+	glm::vec3(46.484375f, 0.0f, -58.0078125f),// 750, 215 3
+	glm::vec3(32.8125f, 0.0f, -70.703125f), //680, 150 4 
+	glm::vec3(17.1875f, 0.0f, -76.5625f), //600, 120 Salto 5
+	glm::vec3(-64.84375f, 0.0f, 23.046875f),//180, 630 6
+	glm::vec3(-53.125f, 0.0f, 48.4375f),//240, 760 7
+	glm::vec3(-35.546875f, 0.0f, 64.0625f),//330, 840 8
+	glm::vec3(-12.109375f, 0.0f, 75.78125f),//450, 900 9
+	glm::vec3(17.1875f, 0.0f, 75.78125f),//600, 900 10
+	glm::vec3(44.53125f, 0.0f, 60.15625f),//740, 820 11
+	glm::vec3(64.0625f, 0.0f, 36.71875f),//840, 700 12
+	glm::vec3(70.8984375f, 0.0f, 6.4453125f),//875, 545 13
+	glm::vec3(68.9453125f, 0.0f, -20.8984375f),//865, 405 14
+};
+
+std::vector<float> orientationPathNPC = {
+	5.0f,//205.0f,//155.0f,//850,380 0  
+	25.0f,//220.f,//140.0f,//825, 300 1 
+	40.0f,//235.0f,//125.0f,//775, 230 2  
+	60.0f,//245.0f,//115.0f,// 750, 215 3  
+	60.0f,//252.0f,//108.0f, //680, 150 4 
+	65.0f, //600, 120 Salto 5
+	185.0f,//180, 630 6
+	200.0f,//240, 760 7
+	230.0f,//330, 840 8
+	250.0f,//450, 900 9
+	275.0f,//600, 900 10
+	285.0f,//740, 820 11
+	315.0f,//840, 700 12
+	330.0f,//875, 545 13
+	5.0f//865, 405 14
+};
+
 //Para prevenir el salto en el movimiento de la camara cuando el angulo de vista es 0
 float angle = 0.0f;
 float angleAux = 0.0f;
@@ -72,17 +144,23 @@ Sphere skyboxSphere(20, 20);
 Box boxCollider;
 Sphere sphereCollider(10, 10);
 
+ShadowBox * shadowBox;
+
 // Models complex instances
 Model modelFighter01;
 Model modelFighter02;
+Model modelFighter03;
+Model modelFighter04;
 Model modelBarrier1;
 Model modelPortal;
+Model modelPortal2;
 
 // Terrain model instance
 Terrain terrain(-1, -1, 200, 8, "../Textures/heightmapPF.png");
 
 GLuint textureCespedID, textureWallID, textureWindowID, textureHighwayID, textureLandingPadID;
 GLuint textureTerrainBackgroundID, textureTerrainRID, textureTerrainGID, textureTerrainBID, textureTerrainBlendMapID;
+GLuint textureParticleFountainID, textureParticleFireID, texId;
 GLuint skyboxTextureID;
 
 GLenum types[6] = {
@@ -107,6 +185,9 @@ int lastMousePosY, offsetY = 0;
 // Model matrix definitions
 glm::mat4 modelMatrixFighter01 = glm::mat4(1.0);
 glm::mat4 modelMatrixFighter02 = glm::mat4(1.0);
+glm::mat4 modelMatrixFighter03 = glm::mat4(1.0);
+glm::mat4 modelMatrixFighter04 = glm::mat4(1.0);
+glm::mat4 modelMatrixPortal2 = glm::mat4(1.0);
 
 // Model barrier type 1 positions
 std::vector<glm::vec3> barrier1Position = {
@@ -152,11 +233,33 @@ std::vector<float> barrier1Orientation2 = {
 //Blending model sin orden (c)
 std::map<std::string, glm::vec3> blendingSinOrden = {
 	{"fighter01", glm::vec3(70.8984375, 0, -2.34375)},
-	{"fighter02", glm::vec3(70.8984375, 0, -1.34375)}
+	{"fighter02", glm::vec3(70.8984375, 0, -1.34375)},
+	{"fighter03", glm::vec3(70.8984375, 0, -1.34375)},
+	{"fighter04", glm::vec3(70.8984375, 0, -1.34375)},
+	//{"fountain", glm::vec3(5.0, 0.0, -40.0)},
+	{"fire", glm::vec3(0.0, 0.0, 7.0)}
 };
 
 double deltaTime;
 double currTime, lastTime;
+
+// Definition for the particle system
+GLuint initVel, startTime;
+GLuint VAOParticles;
+GLuint nParticles = 8000;
+double currTimeParticlesAnimation, lastTimeParticlesAnimation;
+
+// Definition for the particle system fire
+GLuint initVelFire, startTimeFire;
+GLuint VAOParticlesFire;
+GLuint nParticlesFire = 1000;
+GLuint posBuf[2], velBuf[2], age[2];
+GLuint particleArray[2];
+GLuint feedback[2];
+GLuint drawBuf = 1;
+float particleSize = 0.5, particleLifetime = 5.0;
+double currTimeParticlesAnimationFire, lastTimeParticlesAnimationFire;
+
 //Para activar y desactivar la camara en primera persona (b)
 bool enableCameraChange = false;
 bool enableFirstCamera = false;
@@ -166,6 +269,48 @@ int state = 2;
 std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> > collidersOBB;
 std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4> > collidersSBB;
 
+// Framesbuffers
+GLuint depthMap, depthMapFBO;
+
+/**********************
+ * OpenAL config
+ */
+
+ // OpenAL Defines
+#define NUM_BUFFERS 5
+#define NUM_SOURCES 5
+#define NUM_ENVIRONMENTS 1
+// Listener
+ALfloat listenerPos[] = { 0.0, 0.0, 4.0 };
+ALfloat listenerVel[] = { 0.0, 0.0, 0.0 };
+ALfloat listenerOri[] = { 0.0, 0.0, 1.0, 0.0, 1.0, 0.0 };
+// Source 0
+ALfloat source0Pos[] = { -2.0, 0.0, 0.0 };
+ALfloat source0Vel[] = { 0.0, 0.0, 0.0 };
+// Source 1
+ALfloat source1Pos[] = { 2.0, 0.0, 0.0 };
+ALfloat source1Vel[] = { 0.0, 0.0, 0.0 };
+// Source 2
+ALfloat source2Pos[] = { 2.0, 0.0, 0.0 };
+ALfloat source2Vel[] = { 0.0, 0.0, 0.0 };
+// Source 3
+ALfloat source3Pos[] = { 2.0, 0.0, 0.0 };
+ALfloat source3Vel[] = { 0.0, 0.0, 0.0 };
+// Source 4
+ALfloat source4Pos[] = { 2.0, 0.0, 0.0 };
+ALfloat source4Vel[] = { 0.0, 0.0, 0.0 };
+// Buffers
+ALuint buffer[NUM_BUFFERS];
+ALuint source[NUM_SOURCES];
+ALuint environment[NUM_ENVIRONMENTS];
+// Configs
+ALsizei size, freq;
+ALenum format;
+ALvoid *data;
+int ch;
+ALboolean loop;
+std::vector<bool> sourcesPlay = { true, true, true };
+
 // Se definen todos las funciones.
 void reshapeCallback(GLFWwindow *Window, int widthRes, int heightRes);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action,
@@ -173,9 +318,165 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
 void mouseCallback(GLFWwindow *window, double xpos, double ypos);
 void mouseButtonCallback(GLFWwindow *window, int button, int state, int mod);
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+void initParticleBuffers();
 void init(int width, int height, std::string strTitle, bool bFullScreen);
 void destroy();
 bool processInput(bool continueApplication = true);
+void prepareScene();
+void prepareDepthScene();
+void renderScene(bool renderParticles = true);
+
+void initParticleBuffers() {
+	// Generate the buffers
+	glGenBuffers(1, &initVel);   // Initial velocity buffer
+	glGenBuffers(1, &startTime); // Start time buffer
+
+	// Allocate space for all buffers
+	int size = nParticles * 3 * sizeof(float);
+	glBindBuffer(GL_ARRAY_BUFFER, initVel);
+	glBufferData(GL_ARRAY_BUFFER, size, NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, startTime);
+	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(float), NULL, GL_STATIC_DRAW);
+
+	// Fill the first velocity buffer with random velocities
+	glm::vec3 v(0.0f);
+	float velocity, theta, phi;
+	GLfloat *data = new GLfloat[nParticles * 3];
+	for (unsigned int i = 0; i < nParticles; i++) {
+
+		theta = glm::mix(0.0f, glm::pi<float>() / 6.0f, ((float)rand() / RAND_MAX));
+		phi = glm::mix(0.0f, glm::two_pi<float>(), ((float)rand() / RAND_MAX));
+
+		v.x = sinf(theta) * cosf(phi);
+		v.y = cosf(theta);
+		v.z = sinf(theta) * sinf(phi);
+
+		velocity = glm::mix(0.6f, 0.8f, ((float)rand() / RAND_MAX));
+		v = glm::normalize(v) * velocity;
+
+		data[3 * i] = v.x;
+		data[3 * i + 1] = v.y;
+		data[3 * i + 2] = v.z;
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, initVel);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
+
+	// Fill the start time buffer
+	delete[] data;
+	data = new GLfloat[nParticles];
+	float time = 0.0f;
+	float rate = 0.00075f;
+	for (unsigned int i = 0; i < nParticles; i++) {
+		data[i] = time;
+		time += rate;
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, startTime);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, nParticles * sizeof(float), data);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	delete[] data;
+
+	glGenVertexArrays(1, &VAOParticles);
+	glBindVertexArray(VAOParticles);
+	glBindBuffer(GL_ARRAY_BUFFER, initVel);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, startTime);
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(1);
+
+	glBindVertexArray(0);
+}
+
+void initParticleBuffersFire() {
+	// Generate the buffers
+	glGenBuffers(2, posBuf);    // position buffers
+	glGenBuffers(2, velBuf);    // velocity buffers
+	glGenBuffers(2, age);       // age buffers
+
+	// Allocate space for all buffers
+	int size = nParticlesFire * sizeof(GLfloat);
+	glBindBuffer(GL_ARRAY_BUFFER, posBuf[0]);
+	glBufferData(GL_ARRAY_BUFFER, 3 * size, 0, GL_DYNAMIC_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, posBuf[1]);
+	glBufferData(GL_ARRAY_BUFFER, 3 * size, 0, GL_DYNAMIC_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, velBuf[0]);
+	glBufferData(GL_ARRAY_BUFFER, 3 * size, 0, GL_DYNAMIC_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, velBuf[1]);
+	glBufferData(GL_ARRAY_BUFFER, 3 * size, 0, GL_DYNAMIC_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, age[0]);
+	glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, age[1]);
+	glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_COPY);
+
+	// Fill the first age buffer
+	std::vector<GLfloat> initialAge(nParticlesFire);
+	float rate = particleLifetime / nParticlesFire;
+	for (unsigned int i = 0; i < nParticlesFire; i++) {
+		int index = i - nParticlesFire;
+		float result = rate * index;
+		initialAge[i] = result;
+	}
+	// Shuffle them for better looking results
+	//Random::shuffle(initialAge);
+	auto rng = std::default_random_engine{};
+	std::shuffle(initialAge.begin(), initialAge.end(), rng);
+	glBindBuffer(GL_ARRAY_BUFFER, age[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, size, initialAge.data());
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Create vertex arrays for each set of buffers
+	glGenVertexArrays(2, particleArray);
+
+	// Set up particle array 0
+	glBindVertexArray(particleArray[0]);
+	glBindBuffer(GL_ARRAY_BUFFER, posBuf[0]);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, velBuf[0]);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, age[0]);
+	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(2);
+
+	// Set up particle array 1
+	glBindVertexArray(particleArray[1]);
+	glBindBuffer(GL_ARRAY_BUFFER, posBuf[1]);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, velBuf[1]);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, age[1]);
+	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(2);
+
+	glBindVertexArray(0);
+
+	// Setup the feedback objects
+	glGenTransformFeedbacks(2, feedback);
+
+	// Transform feedback 0
+	glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, feedback[0]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, posBuf[0]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 1, velBuf[0]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 2, age[0]);
+
+	// Transform feedback 1
+	glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, feedback[1]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, posBuf[1]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 1, velBuf[1]);
+	glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 2, age[1]);
+
+	glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+}
 
 // Implementacion de todas las funciones.
 void init(int width, int height, std::string strTitle, bool bFullScreen) {
@@ -238,9 +539,16 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	//shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation.vs", "../Shaders/multipleLights.fs");
 	//shaderTerrain.initialize("../Shaders/terrain.vs", "../Shaders/terrain.fs");
 	
+	//shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation_fog.vs", "../Shaders/multipleLights_fog.fs");
+	//shaderTerrain.initialize("../Shaders/terrain_fog.vs", "../Shaders/terrain_fog.fs");
+
 	shaderSkybox.initialize("../Shaders/skyBox.vs", "../Shaders/skyBox_fog.fs");
-	shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation_fog.vs", "../Shaders/multipleLights_fog.fs");
-	shaderTerrain.initialize("../Shaders/terrain_fog.vs", "../Shaders/terrain_fog.fs");
+	shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation_shadow.vs", "../Shaders/multipleLights_shadow.fs");
+	shaderTerrain.initialize("../Shaders/terrain_shadow.vs", "../Shaders/terrain_shadow.fs");
+	shaderParticlesFountain.initialize("../Shaders/particlesFountain.vs", "../Shaders/particlesFountain.fs");
+	shaderParticlesFire.initialize("../Shaders/particlesFire.vs", "../Shaders/particlesFire.fs", { "Position", "Velocity", "Age" });
+	shaderViewDepth.initialize("../Shaders/texturizado.vs", "../Shaders/texturizado_depth_view.fs");
+	shaderDepth.initialize("../Shaders/shadow_mapping_depth.vs", "../Shaders/shadow_mapping_depth.fs");
 
 	// Inicializacion de los objetos.
 	skyboxSphere.init();
@@ -267,6 +575,14 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	modelFighter02.loadModel("../models/ProyFinalModels/fighter02/fighter02.fbx");//("../models/ProyFinalModels/fighter01.fbx");
 	modelFighter02.setShader(&shaderMulLighting);
 
+	//Fighter03
+	modelFighter03.loadModel("../models/ProyFinalModels/fighter03/fighter03.fbx");//("../models/ProyFinalModels/fighter01.fbx");
+	modelFighter03.setShader(&shaderMulLighting);
+
+	//Fighter04
+	modelFighter04.loadModel("../models/ProyFinalModels/fighter04/fighter04.fbx");//("../models/ProyFinalModels/fighter01.fbx");
+	modelFighter04.setShader(&shaderMulLighting);
+
 	//Barrier
 	modelBarrier1.loadModel("../models/ProyFinalModels/barrier/barrier2.fbx");//("../models/ProyFinalModels/fighter01.fbx");
 	modelBarrier1.setShader(&shaderMulLighting);
@@ -274,6 +590,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	//Portal
 	modelPortal.loadModel("../models/ProyFinalModels/portal/portal.fbx");
 	modelPortal.setShader(&shaderMulLighting);
+
+	//Portal 2
+	modelPortal2.loadModel("../models/ProyFinalModels/portal/portal.fbx");
+	modelPortal2.setShader(&shaderMulLighting);
 
 	camera->setPosition(glm::vec3(0.0, 0.0, 10.0));
 	camera->setDistanceFromTarget(distanceFromTarget);
@@ -576,7 +896,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	textureTerrainG.freeImage(bitmap);
 
 	// Definiendo la textura a utilizar
-	Texture textureTerrainB("../Textures/net.png");
+	Texture textureTerrainB("../Textures/mypath2.png");
 	// Carga el mapa de bits (FIBITMAP es el tipo de dato de la libreria)
 	bitmap = textureTerrainB.loadImage();
 	// Convertimos el mapa de bits en un arreglo unidimensional de tipo unsigned char
@@ -638,8 +958,198 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	}
 	else
 		std::cout << "Failed to load texture" << std::endl;
+
+	Texture textureParticlesFountain("../Textures/bluewater.png");
+	bitmap = textureParticlesFountain.loadImage();
+	data = textureParticlesFountain.convertToData(bitmap, imageWidth, imageHeight);
+	glGenTextures(1, &textureParticleFountainID);
+	glBindTexture(GL_TEXTURE_2D, textureParticleFountainID);
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// set texture filtering parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0,
+			GL_BGRA, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+		std::cout << "Failed to load texture" << std::endl;
+	textureParticlesFountain.freeImage(bitmap);
+
+	Texture textureParticleFire("../Textures/fire.png");
+	bitmap = textureParticleFire.loadImage();
+	data = textureParticleFire.convertToData(bitmap, imageWidth, imageHeight);
+	glGenTextures(1, &textureParticleFireID);
+	glBindTexture(GL_TEXTURE_2D, textureParticleFireID);
+	// set the texture wrapping parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// set texture filtering parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth, imageHeight, 0,
+			GL_BGRA, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+		std::cout << "Failed to load texture" << std::endl;
 	// Libera la memoria de la textura
 	textureTerrainBlendMap.freeImage(bitmap);
+
+	std::uniform_real_distribution<float> distr01 = std::uniform_real_distribution<float>(0.0f, 1.0f);
+	std::mt19937 generator;
+	std::random_device rd;
+	generator.seed(rd());
+	int size = nParticlesFire * 2;
+	std::vector<GLfloat> randData(size);
+	for (int i = 0; i < randData.size(); i++) {
+		randData[i] = distr01(generator);
+	}
+
+	glGenTextures(1, &texId);
+	glBindTexture(GL_TEXTURE_1D, texId);
+	glTexStorage1D(GL_TEXTURE_1D, 1, GL_R32F, size);
+	glTexSubImage1D(GL_TEXTURE_1D, 0, 0, size, GL_RED, GL_FLOAT, randData.data());
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	shaderParticlesFire.setInt("Pass", 1);
+	shaderParticlesFire.setInt("ParticleTex", 0);
+	shaderParticlesFire.setInt("RandomTex", 1);
+	shaderParticlesFire.setFloat("ParticleLifetime", particleLifetime);
+	shaderParticlesFire.setFloat("ParticleSize", particleSize);
+	shaderParticlesFire.setVectorFloat3("Accel", glm::value_ptr(glm::vec3(0.0f, 0.1f, 0.0f)));
+	shaderParticlesFire.setVectorFloat3("Emitter", glm::value_ptr(glm::vec3(0.0f)));
+
+	glm::mat3 basis;
+	glm::vec3 u, v, n;
+	v = glm::vec3(0, 1, 0);
+	n = glm::cross(glm::vec3(1, 0, 0), v);
+	if (glm::length(n) < 0.00001f) {
+		n = glm::cross(glm::vec3(0, 1, 0), v);
+	}
+	u = glm::cross(v, n);
+	basis[0] = glm::normalize(u);
+	basis[1] = glm::normalize(v);
+	basis[2] = glm::normalize(n);
+	shaderParticlesFire.setMatrix3("EmitterBasis", 1, false, glm::value_ptr(basis));
+
+	/*******************************************
+	 * Inicializacion de los buffers de la fuente
+	 *******************************************/
+	//initParticleBuffers();
+
+	/*******************************************
+	 * Inicializacion de los buffers del fuego
+	 *******************************************/
+	initParticleBuffersFire();
+
+	/*******************************************
+	 * Inicializacion del framebuffer para
+	 * almacenar el buffer de profunidadad
+	 *******************************************/
+	glGenFramebuffers(1, &depthMapFBO);
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);*/
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0, 1.0, 1.0, 1.0 };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	/*******************************************
+	 * OpenAL init
+	 *******************************************/
+	alutInit(0, nullptr);
+	alListenerfv(AL_POSITION, listenerPos);
+	alListenerfv(AL_VELOCITY, listenerVel);
+	alListenerfv(AL_ORIENTATION, listenerOri);
+	alGetError(); // clear any error messages
+	if (alGetError() != AL_NO_ERROR) {
+		printf("- Error creating buffers !!\n");
+		exit(1);
+	}
+	else {
+		printf("init() - No errors yet.");
+	}
+	// Config source 0
+	// Generate buffers, or else no sound will happen!
+	alGenBuffers(NUM_BUFFERS, buffer);
+	buffer[0] = alutCreateBufferFromFile("../sounds/nave1.wav");
+	buffer[1] = alutCreateBufferFromFile("../sounds/fire.wav");
+	buffer[2] = alutCreateBufferFromFile("../sounds/nave2.wav");
+	buffer[3] = alutCreateBufferFromFile("../sounds/nave3.wav");
+	buffer[4] = alutCreateBufferFromFile("../sounds/nave4.wav");
+	int errorAlut = alutGetError();
+	if (errorAlut != ALUT_ERROR_NO_ERROR) {
+		printf("- Error open files with alut %d !!\n", errorAlut);
+		exit(2);
+	}
+
+
+	alGetError(); /* clear error */
+	alGenSources(NUM_SOURCES, source);
+
+	if (alGetError() != AL_NO_ERROR) {
+		printf("- Error creating sources !!\n");
+		exit(2);
+	}
+	else {
+		printf("init - no errors after alGenSources\n");
+	}
+	alSourcef(source[0], AL_PITCH, 1.0f);
+	alSourcef(source[0], AL_GAIN, 3.0f);
+	alSourcefv(source[0], AL_POSITION, source0Pos);
+	alSourcefv(source[0], AL_VELOCITY, source0Vel);
+	alSourcei(source[0], AL_BUFFER, buffer[0]);
+	alSourcei(source[0], AL_LOOPING, AL_TRUE);
+	alSourcef(source[0], AL_MAX_DISTANCE, 2000);
+
+	alSourcef(source[1], AL_PITCH, 1.0f);
+	alSourcef(source[1], AL_GAIN, 0.3f);
+	alSourcefv(source[1], AL_POSITION, source1Pos);
+	alSourcefv(source[1], AL_VELOCITY, source1Vel);
+	alSourcei(source[1], AL_BUFFER, buffer[1]);
+	alSourcei(source[1], AL_LOOPING, AL_TRUE);
+	alSourcef(source[1], AL_MAX_DISTANCE, 2000);
+
+	alSourcef(source[2], AL_PITCH, 1.0f);
+	alSourcef(source[2], AL_GAIN, 3.0f);
+	alSourcefv(source[2], AL_POSITION, source2Pos);
+	alSourcefv(source[2], AL_VELOCITY, source2Vel);
+	alSourcei(source[2], AL_BUFFER, buffer[2]);
+	alSourcei(source[2], AL_LOOPING, AL_TRUE);
+	alSourcef(source[2], AL_MAX_DISTANCE, 500);
+
+	alSourcef(source[3], AL_PITCH, 1.0f);
+	alSourcef(source[3], AL_GAIN, 3.0f);
+	alSourcefv(source[3], AL_POSITION, source3Pos);
+	alSourcefv(source[3], AL_VELOCITY, source3Vel);
+	alSourcei(source[3], AL_BUFFER, buffer[3]);
+	alSourcei(source[3], AL_LOOPING, AL_TRUE);
+	alSourcef(source[3], AL_MAX_DISTANCE, 2000);
+
+	alSourcef(source[4], AL_PITCH, 1.0f);
+	alSourcef(source[4], AL_GAIN, 3.0f);
+	alSourcefv(source[4], AL_POSITION, source4Pos);
+	alSourcefv(source[4], AL_VELOCITY, source4Vel);
+	alSourcei(source[4], AL_BUFFER, buffer[4]);
+	alSourcei(source[4], AL_LOOPING, AL_TRUE);
+	alSourcef(source[4], AL_MAX_DISTANCE, 2000);
 }
 
 void destroy() {
@@ -653,6 +1163,8 @@ void destroy() {
 	shaderMulLighting.destroy();
 	shaderSkybox.destroy();
 	shaderTerrain.destroy();
+	shaderParticlesFountain.destroy();
+	shaderParticlesFire.destroy();
 
 	// Basic objects Delete
 	skyboxSphere.destroy();
@@ -665,8 +1177,11 @@ void destroy() {
 	// Custom objects Delete
 	modelFighter01.destroy();
 	modelFighter02.destroy();
+	modelFighter03.destroy();
+	modelFighter04.destroy();
 	modelBarrier1.destroy();
 	modelPortal.destroy();
+	modelPortal2.destroy();
 
 	// Textures Delete
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -680,10 +1195,29 @@ void destroy() {
 	glDeleteTextures(1, &textureTerrainGID);
 	glDeleteTextures(1, &textureTerrainBID);
 	glDeleteTextures(1, &textureTerrainBlendMapID);
+	glDeleteTextures(1, &textureParticleFountainID);
+	glDeleteTextures(1, &textureParticleFireID);
 
 	// Cube Maps Delete
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	glDeleteTextures(1, &skyboxTextureID);
+
+	// Remove the buffer of the fountain particles
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDeleteBuffers(1, &initVel);
+	glDeleteBuffers(1, &startTime);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &VAOParticles);
+
+	// Remove the buffer of the fire particles
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDeleteBuffers(2, posBuf);
+	glDeleteBuffers(2, velBuf);
+	glDeleteBuffers(2, age);
+	glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+	glDeleteTransformFeedbacks(2, feedback);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &VAOParticlesFire);
 }
 
 void reshapeCallback(GLFWwindow *Window, int widthRes, int heightRes) {
@@ -770,18 +1304,18 @@ bool processInput(bool continueApplication) {
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 1;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.24));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5));
 		modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(1.0f), glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 0;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.24));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5));
 		modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(-1.0f), glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !enableFirstCamera) {
 		state = 2;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.3));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.75));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS && !enableFirstCamera)
 	{
@@ -796,7 +1330,7 @@ bool processInput(bool continueApplication) {
 	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 2;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, -0.3));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, -0.75));
 	}
 
 	glfwPollEvents();
@@ -804,27 +1338,37 @@ bool processInput(bool continueApplication) {
 }
 
 void applicationLoop() {
+
 	bool psi = true;
 
 	glm::mat4 view;
 	glm::vec3 axis;
 	glm::vec3 target;
 	float angleTarget;
-	
-	//Variables adicionales
-	float distance = 0.0f;
-	glm::vec3 objetivoPos;
-	glm::vec3 objetoPos;
-	glm::vec3 diferencia;
 
 	modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(70.8984375, 0, -2.34375));
 	modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(180.0f), glm::vec3(0, 1, 0));
-	modelMatrixFighter02 = glm::translate(modelMatrixFighter02, glm::vec3(70.8984375, 0, -1.34375));
+	modelMatrixFighter02 = glm::translate(modelMatrixFighter02, glm::vec3(70.8984375, 0, -1.34375)); //875, 505,12
 	modelMatrixFighter02 = glm::rotate(modelMatrixFighter02, glm::radians(180.0f), glm::vec3(0, 1, 0));
-
-	objetivoPos = modelMatrixFighter01[3];
+	modelMatrixFighter03 = glm::translate(modelMatrixFighter03, glm::vec3(70.8984375, 0, -1.34375)); //875, 505,12
+	modelMatrixFighter03 = glm::rotate(modelMatrixFighter03, glm::radians(180.0f), glm::vec3(0, 1, 0));
+	modelMatrixFighter04 = glm::translate(modelMatrixFighter04, glm::vec3(70.8984375, 0, -1.34375)); //875, 505,12
+	modelMatrixFighter04 = glm::rotate(modelMatrixFighter04, glm::radians(180.0f), glm::vec3(0, 1, 0));
+	modelMatrixPortal2 = glm::rotate(modelMatrixPortal2, glm::radians(160.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	modelMatrixPortal2 = glm::translate(modelMatrixPortal2, glm::vec3(45.5078125f, 0.0f, 0.0f)); //745,40
 
 	lastTime = TimeManager::Instance().GetTime();
+
+	// Time for the particles animation
+	currTimeParticlesAnimation = lastTime;
+	lastTimeParticlesAnimation = lastTime;
+
+	currTimeParticlesAnimationFire = lastTime;
+	lastTimeParticlesAnimationFire = lastTime;
+
+	glm::vec3 lightPos = glm::vec3(10.0, 10.0, 0.0);
+
+	shadowBox = new ShadowBox(-lightPos, camera.get(), 15.0f, 0.1f, 45.0f);
 
 	while (psi) {
 		currTime = TimeManager::Instance().GetTime();
@@ -903,6 +1447,23 @@ void applicationLoop() {
 		else
 			view = camera->getViewMatrix();
 
+		shadowBox->update(screenWidth, screenHeight);
+		glm::vec3 centerBox = shadowBox->getCenter();
+
+		// Projection light shadow mapping
+		glm::mat4 lightProjection = glm::mat4(1.0f), lightView = glm::mat4(1.0f);
+		glm::mat4 lightSpaceMatrix;
+
+		lightProjection[0][0] = 2.0f / shadowBox->getWidth();
+		lightProjection[1][1] = 2.0f / shadowBox->getHeight();
+		lightProjection[2][2] = -2.0f / shadowBox->getLength();
+		lightProjection[3][3] = 1.0f;
+
+		lightView = glm::lookAt(centerBox, centerBox + glm::normalize(-lightPos), glm::vec3(0.0, 1.0, 0.0));
+
+		lightSpaceMatrix = lightProjection * lightView;
+		shaderDepth.setMatrix4("lightSpaceMatrix", 1, false, glm::value_ptr(lightSpaceMatrix));
+
 		// Settea la matriz de vista y projection al shader con solo color
 		shader.setMatrix4("projection", 1, false, glm::value_ptr(projection));
 		shader.setMatrix4("view", 1, false, glm::value_ptr(view));
@@ -917,11 +1478,24 @@ void applicationLoop() {
 			glm::value_ptr(projection));
 		shaderMulLighting.setMatrix4("view", 1, false,
 			glm::value_ptr(view));
+		shaderMulLighting.setMatrix4("lightSpaceMatrix", 1, false,
+			glm::value_ptr(lightSpaceMatrix));
 		// Settea la matriz de vista y projection al shader con multiples luces
 		shaderTerrain.setMatrix4("projection", 1, false,
 			glm::value_ptr(projection));
 		shaderTerrain.setMatrix4("view", 1, false,
 			glm::value_ptr(view));
+		shaderTerrain.setMatrix4("lightSpaceMatrix", 1, false,
+			glm::value_ptr(lightSpaceMatrix));
+		// Settea la matriz de vista y projection al shader para el fountain
+		shaderParticlesFountain.setMatrix4("projection", 1, false,
+			glm::value_ptr(projection));
+		shaderParticlesFountain.setMatrix4("view", 1, false,
+			glm::value_ptr(view));
+		// Settea la matriz de vista y projection al shader para el fuego
+		shaderParticlesFire.setInt("Pass", 2);
+		shaderParticlesFire.setMatrix4("projection", 1, false, glm::value_ptr(projection));
+		shaderParticlesFire.setMatrix4("view", 1, false, glm::value_ptr(view));
 
 		/******************************************
 		* Propiedades de la neblina
@@ -929,43 +1503,24 @@ void applicationLoop() {
 		shaderMulLighting.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
 		shaderTerrain.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
 		shaderSkybox.setVectorFloat3("fogColor", glm::value_ptr(glm::vec3(0.5, 0.5, 0.4)));
-		/*
-		/*******************************************
-		 * Propiedades Luz direccional
-		 *******************************************
-		shaderMulLighting.setVectorFloat3("viewPos", glm::value_ptr(camera->getPosition()));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.05, 0.05, 0.05)));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.4, 0.4, 0.4)));
-		shaderMulLighting.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-1.0, 0.0, 0.0)));
-
-		/*******************************************
-		 * Propiedades Luz direccional Terrain
-		 *******************************************
-		shaderTerrain.setVectorFloat3("viewPos", glm::value_ptr(camera->getPosition()));
-		shaderTerrain.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.05, 0.05, 0.05)));
-		shaderTerrain.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
-		shaderTerrain.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.4, 0.4, 0.4)));
-		shaderTerrain.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-1.0, 0.0, 0.0)));
-		*/
-
+		
 		/*******************************************
 		 * Propiedades Luz direccional
 		 *******************************************/
 		shaderMulLighting.setVectorFloat3("viewPos", glm::value_ptr(camera->getPosition()));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.7, 0.7, 0.7)));
-		shaderMulLighting.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.9, 0.9, 0.9)));
-		shaderMulLighting.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-1.0, 0.0, 0.0)));
+		shaderMulLighting.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
+		shaderMulLighting.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.5, 0.5, 0.5)));
+		shaderMulLighting.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
+		shaderMulLighting.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-0.707106781, -0.707106781, 0.0)));
 
 		/*******************************************
 		 * Propiedades Luz direccional Terrain
 		 *******************************************/
 		shaderTerrain.setVectorFloat3("viewPos", glm::value_ptr(camera->getPosition()));
-		shaderTerrain.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.3, 0.3, 0.3)));
-		shaderTerrain.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.7, 0.7, 0.7)));
-		shaderTerrain.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.9, 0.9, 0.9)));
-		shaderTerrain.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-1.0, 0.0, 0.0)));
+		shaderTerrain.setVectorFloat3("directionalLight.light.ambient", glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
+		shaderTerrain.setVectorFloat3("directionalLight.light.diffuse", glm::value_ptr(glm::vec3(0.5, 0.5, 0.5)));
+		shaderTerrain.setVectorFloat3("directionalLight.light.specular", glm::value_ptr(glm::vec3(0.2, 0.2, 0.2)));
+		shaderTerrain.setVectorFloat3("directionalLight.direction", glm::value_ptr(glm::vec3(-0.707106781, -0.707106781, 0.0)));
 
 		/*******************************************
 		 * Propiedades SpotLights
@@ -980,62 +1535,46 @@ void applicationLoop() {
 		shaderTerrain.setInt("pointLightCount", 0);
 
 		/*******************************************
-		 * Terrain Cesped
+		 * 1.- We render the depth buffer
 		 *******************************************/
-		glm::mat4 modelCesped = glm::mat4(1.0);
-		modelCesped = glm::translate(modelCesped, glm::vec3(0.0, 0.0, 0.0));
-		modelCesped = glm::scale(modelCesped, glm::vec3(200.0, 0.001, 200.0));
-		// Se activa la textura del background
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, textureTerrainBackgroundID);
-		shaderTerrain.setInt("backgroundTexture", 0);
-		// Se activa la textura de tierra
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, textureTerrainRID);
-		shaderTerrain.setInt("rTexture", 1);
-		// Se activa la textura de hierba
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, textureTerrainGID);
-		shaderTerrain.setInt("gTexture", 2);
-		// Se activa la textura del camino
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, textureTerrainBID);
-		shaderTerrain.setInt("bTexture", 3);
-		// Se activa la textura del blend map
-		glActiveTexture(GL_TEXTURE4);
-		glBindTexture(GL_TEXTURE_2D, textureTerrainBlendMapID);
-		shaderTerrain.setInt("blendMapTexture", 4);
-		shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(40, 40)));
-		terrain.render();
-		shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
-		glBindTexture(GL_TEXTURE_2D, 0);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// render scene from light's point of view
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		//glCullFace(GL_FRONT);
+		prepareDepthScene();
+		renderScene(false);
+		//glCullFace(GL_BACK);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		/*******************************************
-		 * Custom objects obj
+		 * Debug to view the texture view map
 		 *******************************************/
-		
-		// Render muros de contencion de la pista
-		for (int i = 0; i < barrier1Position.size(); i++) {
-			barrier1Position[i].y = terrain.getHeightTerrain(barrier1Position[i].x, barrier1Position[i].z);
-			modelBarrier1.setPosition(barrier1Position[i]);
-			modelBarrier1.setScale(glm::vec3(0.4f, 0.1f, 0.025f));
-			modelBarrier1.setOrientation(glm::vec3(0.0f, barrier1Orientation[i], 0.0f));
-			modelBarrier1.render();
-		}
-		for (int i = 0; i < barrier1Position2.size(); i++) {
-			barrier1Position2[i].y = terrain.getHeightTerrain(barrier1Position2[i].x, barrier1Position2[i].z);
-			modelBarrier1.setPosition(barrier1Position2[i]);
-			modelBarrier1.setScale(glm::vec3(0.2f, 0.1f, 0.025f));
-			modelBarrier1.setOrientation(glm::vec3(0.0f, barrier1Orientation2[i], 0.0f));
-			modelBarrier1.render();
-		}
+		 // reset viewport
+		 /*glViewport(0, 0, screenWidth, screenHeight);
+		 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		 // render Depth map to quad for visual debugging
+		 shaderViewDepth.setMatrix4("projection", 1, false, glm::value_ptr(glm::mat4(1.0)));
+		 shaderViewDepth.setMatrix4("view", 1, false, glm::value_ptr(glm::mat4(1.0)));
+		 glActiveTexture(GL_TEXTURE0);
+		 glBindTexture(GL_TEXTURE_2D, depthMap);
+		 boxViewDepth.setScale(glm::vec3(2.0, 2.0, 1.0));
+		 boxViewDepth.render();*/
 
-		//Render portal
-		float portalY = terrain.getHeightTerrain(modelPortal.getPosition().x, modelPortal.getPosition().z) + 30.0f;
-		modelPortal.setPosition(glm::vec3(5.0f, portalY, -107.5f)); //540,40
-		modelPortal.setScale(glm::vec3(0.1f, 0.1f, 0.1f));
-		modelPortal.setOrientation(glm::vec3(0.0f, -80.0f, 0.0f));
-		modelPortal.render();
+		 /*******************************************
+		  * 2.- We render the normal objects
+		  *******************************************/
+		glViewport(0, 0, screenWidth, screenHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		prepareScene();
+		glActiveTexture(GL_TEXTURE10);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		shaderMulLighting.setInt("shadowMap", 10);
+		shaderTerrain.setInt("shadowMap", 10);
+
+		
 
 		/*******************************************
 		 * Skybox
@@ -1052,51 +1591,26 @@ void applicationLoop() {
 		skyboxSphere.render();
 		glCullFace(oldCullFaceMode);
 		glDepthFunc(oldDepthFuncMode);
+		renderScene();
 
-		/**********************
-		* Importante se actualiza la posicion de los objetos con transparencia
-		***********************/
-		//Se actualiza el fighter
-		blendingSinOrden.find("fighter01")->second = glm::vec3(modelMatrixFighter01[3]);
-		blendingSinOrden.find("fighter02")->second = glm::vec3(modelMatrixFighter02[3]);
+		/*******************************************
+		 * Debug to box light box
+		 *******************************************/
+		 /*glm::vec3 front = glm::normalize(-lightPos);
+		 glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0, 1, 0), front));
+		 glm::vec3 up = glm::normalize(glm::cross(front, right));
+		 glDisable(GL_CULL_FACE);
+		 glm::mat4 boxViewTransform = glm::mat4(1.0f);
+		 boxViewTransform = glm::translate(boxViewTransform, centerBox);
+		 boxViewTransform[0] = glm::vec4(right, 0.0);
+		 boxViewTransform[1] = glm::vec4(up, 0.0);
+		 boxViewTransform[2] = glm::vec4(front, 0.0);
+		 boxViewTransform = glm::scale(boxViewTransform, glm::vec3(shadowBox->getWidth(), shadowBox->getHeight(), shadowBox->getLength()));
+		 boxLightViewBox.enableWireMode();
+		 boxLightViewBox.render(boxViewTransform);
+		 glEnable(GL_CULL_FACE);*/
+
 		
-		/*********************
-		* Se ordena los objetos con el canal alfa
-		**********************/
-		std::map<float, std::pair<std::string, glm::vec3>> blendingOrdenado;
-		std::map<std::string, glm::vec3>::iterator itBlend;
-		for (itBlend = blendingSinOrden.begin(); itBlend != blendingSinOrden.end(); itBlend++) {
-			float distanceFromView = glm::length(camera->getPosition() - itBlend->second);
-			blendingOrdenado[distanceFromView] = std::make_pair(itBlend->first, itBlend->second);
-		}
-
-		/***********************
-		* Render de las transparencias
-		************************/
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glDisable(GL_CULL_FACE);
-		for (std::map<float, std::pair<std::string, glm::vec3>>::reverse_iterator it = blendingOrdenado.rbegin();
-			it != blendingOrdenado.rend(); it++) {
-			if (it->second.first.compare("fighter01") == 0) {
-				// Render for the fighter model
-				modelMatrixFighter01[3][1] = terrain.getHeightTerrain(modelMatrixFighter01[3][0], modelMatrixFighter01[3][2]) + 1.0f;
-				glm::mat4 modelMatrixFighter01Chasis = glm::mat4(modelMatrixFighter01);
-				modelMatrixFighter01Chasis = glm::scale(modelMatrixFighter01Chasis, glm::vec3(0.5, 0.5, 0.5));
-				modelFighter01.render(modelMatrixFighter01Chasis);
-
-			}
-			if (it->second.first.compare("fighter02") == 0) {
-				// Render for the fighter model
-				modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
-				glm::mat4 modelMatrixFighter02Chasis = glm::mat4(modelMatrixFighter02);
-				modelMatrixFighter02Chasis = glm::scale(modelMatrixFighter02Chasis, glm::vec3(0.5, 0.5, 0.5));
-				modelFighter02.render(modelMatrixFighter02Chasis);
-
-			}
-		}
-		glEnable(GL_CULL_FACE);
-		glDisable(GL_BLEND);
 
 		/*******************************************
 		 * Creacion de colliders
@@ -1139,13 +1653,14 @@ void applicationLoop() {
 		AbstractModel::OBB fighter01Collider;
 		// Set the orientation of collider before doing the scale
 		fighter01Collider.u = glm::quat_cast(modelMatrixFighter01);
-		modelmatrixColliderFighter01 = glm::scale(modelmatrixColliderFighter01, glm::vec3(0.5, 0.5, 0.5));
+		//modelmatrixColliderFighter01 = glm::rotate(modelmatrixColliderFighter01, glm::radians(270.0f), glm::vec3(1, 0, 0));
+		modelmatrixColliderFighter01 = glm::scale(modelmatrixColliderFighter01, glm::vec3(0.05, 0.05, 0.05));//glm::vec3(0.15, 0.15, 0.025));
 		modelmatrixColliderFighter01 = glm::translate(modelmatrixColliderFighter01,
 			glm::vec3(modelFighter01.getObb().c.x,
 				modelFighter01.getObb().c.y,
 				modelFighter01.getObb().c.z));
 		fighter01Collider.c = glm::vec3(modelmatrixColliderFighter01[3]);
-		fighter01Collider.e = modelFighter01.getObb().e * glm::vec3(0.5, 0.5, 0.5);
+		fighter01Collider.e = modelFighter01.getObb().e * glm::vec3(0.05, 0.05, 0.05);//glm::vec3(0.15, 0.15, 0.05);
 		addOrUpdateColliders(collidersOBB, "fighter01", fighter01Collider, modelMatrixFighter01);
 
 		// Collider del portal
@@ -1161,6 +1676,17 @@ void applicationLoop() {
 		portalCollider.c = glm::vec3(modelMatrixColliderPortal[3]);
 		portalCollider.e = modelPortal.getObb().e * glm::vec3(0.1f, 0.1f, 0.1f);
 		addOrUpdateColliders(collidersOBB, "portal", portalCollider, modelMatrixColliderPortal);
+
+		// Collider del portal 2
+		AbstractModel::OBB portalCollider2;
+		glm::mat4 modelMatrixColliderPortal2 = glm::mat4(modelMatrixPortal2);
+		// Set the orientation of collider before doing the scale
+		portalCollider2.u = glm::quat_cast(modelMatrixColliderPortal2);
+		modelMatrixColliderPortal2 = glm::scale(modelMatrixColliderPortal2, glm::vec3(0.1f, 0.1f, 0.1f));
+		modelMatrixColliderPortal2 = glm::translate(modelMatrixColliderPortal2, modelPortal2.getObb().c);
+		portalCollider2.c = glm::vec3(modelMatrixColliderPortal2[3]);
+		portalCollider2.e = modelPortal2.getObb().e * glm::vec3(0.1f, 0.1f, 0.1f);
+		addOrUpdateColliders(collidersOBB, "portal2", portalCollider2, modelMatrixColliderPortal2);
 
 		 /*******************************************
 		  * Render de colliders
@@ -1293,26 +1819,388 @@ void applicationLoop() {
 			}
 		}
 
-		//Rutina de los NPC
+		/******************************
+		* Rutina de los NPC
+		******************************/
+		//Fighter02
+		objetivoPos = pathNPC[checkpointFighter02];
 		objetoPos = modelMatrixFighter02[3];
 		distance = (objetoPos.x - objetivoPos.x) * (objetoPos.x - objetivoPos.x) + (objetoPos.z - objetivoPos.z) * (objetoPos.z - objetivoPos.z);
-		if (distance < 0.5f) {
-			objetivoPos = modelMatrixFighter01[3];
-			//std::cout << "Diferencia " << modelFighter01.getPosition().x << modelFighter01.getPosition().y << modelFighter01.getPosition().z << std::endl;
-			//std::cout << "Distancia " << distance << std::endl;
+		if (distance < 1.0f) {
+			if (checkpointFighter02 == 5) {
+				modelMatrixFighter02 = glm::mat4(1.0);
+				modelMatrixFighter02 = glm::translate(modelMatrixFighter02, glm::vec3(-67.7734375f, 0.0, 0.0f)); //165, 512
+				modelMatrixFighter02 = glm::rotate(modelMatrixFighter02, glm::radians(180.0f), glm::vec3(0, 1, 0));
+				modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
+			}
+			checkpointFighter02++;
+			if (checkpointFighter02 > pathNPC.size()-1)
+				checkpointFighter02 = 0;
 		}
 		else {
 			diferencia = objetoPos - objetivoPos;
 			diferencia = diferencia / distance;
-			//std::cout << "Diferencia " << diferencia.x << diferencia.y << diferencia.z << std::endl;
-			//std::cout << "Distancia " << distance << std::endl;
-			modelMatrixFighter02 = glm::translate(modelMatrixFighter02, diferencia);
+			modelMatrixFighter02 = glm::translate(modelMatrixFighter02, diferencia * fighter02Speed);
 			modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
-
+		}
+		//Fighter03
+		objetivoPos = pathNPC[checkpointFighter03];
+		objetoPos = modelMatrixFighter03[3];
+		distance = (objetoPos.x - objetivoPos.x) * (objetoPos.x - objetivoPos.x) + (objetoPos.z - objetivoPos.z) * (objetoPos.z - objetivoPos.z);
+		if (distance < 1.0f) {
+			if (checkpointFighter03 == 5) {
+				modelMatrixFighter03 = glm::mat4(1.0);
+				modelMatrixFighter03 = glm::translate(modelMatrixFighter03, glm::vec3(-67.7734375f, 0.0, 0.0f)); //165, 512
+				modelMatrixFighter03 = glm::rotate(modelMatrixFighter03, glm::radians(180.0f), glm::vec3(0, 1, 0));
+				modelMatrixFighter03[3][1] = terrain.getHeightTerrain(modelMatrixFighter03[3][0], modelMatrixFighter03[3][2]) + 1.0f;
+			}
+			checkpointFighter03++;
+			if (checkpointFighter03 > pathNPC.size() - 1)
+				checkpointFighter03 = 0;
+		}
+		else {
+			diferencia = objetoPos - objetivoPos;
+			diferencia = diferencia / distance;
+			modelMatrixFighter03 = glm::translate(modelMatrixFighter03, diferencia * fighter03Speed);
+			modelMatrixFighter03[3][1] = terrain.getHeightTerrain(modelMatrixFighter03[3][0], modelMatrixFighter03[3][2]) + 1.0f;
+		}
+		//Fighter04
+		objetivoPos = pathNPC[checkpointFighter04];
+		objetoPos = modelMatrixFighter04[3];
+		distance = (objetoPos.x - objetivoPos.x) * (objetoPos.x - objetivoPos.x) + (objetoPos.z - objetivoPos.z) * (objetoPos.z - objetivoPos.z);
+		if (distance < 1.0f) {
+			if (checkpointFighter04 == 5) {
+				modelMatrixFighter04 = glm::mat4(1.0);
+				modelMatrixFighter04 = glm::translate(modelMatrixFighter04, glm::vec3(-67.7734375f, 0.0, 0.0f)); //165, 512
+				modelMatrixFighter04 = glm::rotate(modelMatrixFighter04, glm::radians(180.0f), glm::vec3(0, 1, 0));
+				modelMatrixFighter04[3][1] = terrain.getHeightTerrain(modelMatrixFighter04[3][0], modelMatrixFighter04[3][2]) + 1.0f;
+			}
+			checkpointFighter04++;
+			if (checkpointFighter04 > pathNPC.size() - 1)
+				checkpointFighter04 = 0;
+		}
+		else {
+			diferencia = objetoPos - objetivoPos;
+			diferencia = diferencia / distance;
+			modelMatrixFighter04 = glm::translate(modelMatrixFighter04, diferencia * fighter04Speed);
+			modelMatrixFighter04[3][1] = terrain.getHeightTerrain(modelMatrixFighter04[3][0], modelMatrixFighter04[3][2]) + 1.0f;
 		}
 
 		glfwSwapBuffers(window);
+
+		/****************************+
+		 * Open AL sound data
+		 ****************************/
+		source0Pos[0] = modelMatrixFighter01[3].x;
+		source0Pos[1] = modelMatrixFighter01[3].y;
+		source0Pos[2] = modelMatrixFighter01[3].z;
+		alSourcefv(source[0], AL_POSITION, source0Pos);
+
+		source2Pos[0] = modelMatrixFighter02[3].x;
+		source2Pos[1] = modelMatrixFighter02[3].y;
+		source2Pos[2] = modelMatrixFighter02[3].z;
+		alSourcefv(source[2], AL_POSITION, source2Pos);
+
+		source3Pos[0] = modelMatrixFighter03[3].x;
+		source3Pos[1] = modelMatrixFighter03[3].y;
+		source3Pos[2] = modelMatrixFighter03[3].z;
+		alSourcefv(source[3], AL_POSITION, source3Pos);
+
+		source4Pos[0] = modelMatrixFighter04[3].x;
+		source4Pos[1] = modelMatrixFighter04[3].y;
+		source4Pos[2] = modelMatrixFighter04[3].z;
+		alSourcefv(source[4], AL_POSITION, source4Pos);
+
+		// Listener for the Thris person camera
+		listenerPos[0] = modelMatrixFighter01[3].x;
+		listenerPos[1] = modelMatrixFighter01[3].y;
+		listenerPos[2] = modelMatrixFighter01[3].z;
+		alListenerfv(AL_POSITION, listenerPos);
+
+		glm::vec3 upModel = glm::normalize(modelMatrixFighter01[1]);
+		glm::vec3 frontModel = glm::normalize(modelMatrixFighter01[2]);
+
+		listenerOri[0] = frontModel.x;
+		listenerOri[1] = frontModel.y;
+		listenerOri[2] = frontModel.z;
+		listenerOri[3] = upModel.x;
+		listenerOri[4] = upModel.y;
+		listenerOri[5] = upModel.z;
+
+		// Listener for the First person camera
+		/*listenerPos[0] = camera->getPosition().x;
+		listenerPos[1] = camera->getPosition().y;
+		listenerPos[2] = camera->getPosition().z;
+		alListenerfv(AL_POSITION, listenerPos);
+		listenerOri[0] = camera->getFront().x;
+		listenerOri[1] = camera->getFront().y;
+		listenerOri[2] = camera->getFront().z;
+		listenerOri[3] = camera->getUp().x;
+		listenerOri[4] = camera->getUp().y;
+		listenerOri[5] = camera->getUp().z;*/
+		alListenerfv(AL_ORIENTATION, listenerOri);
+
+		for (unsigned int i = 0; i < sourcesPlay.size(); i++) {
+			if (sourcesPlay[i]) {
+				sourcesPlay[i] = false;
+				alSourcePlay(source[i]);
+			}
+		}
 	}
+}
+
+void prepareScene() {
+	skyboxSphere.setShader(&shaderSkybox);
+
+	terrain.setShader(&shaderTerrain);
+
+	modelFighter01.setShader(&shaderMulLighting);
+
+	modelFighter02.setShader(&shaderMulLighting);
+}
+
+void prepareDepthScene() {
+	skyboxSphere.setShader(&shaderDepth);
+
+	terrain.setShader(&shaderDepth);
+
+	modelFighter01.setShader(&shaderDepth);
+
+	modelFighter02.setShader(&shaderDepth);
+}
+
+void renderScene(bool renderParticles) {
+	/*******************************************
+	* Terrain Cesped
+	*******************************************/
+	glm::mat4 modelCesped = glm::mat4(1.0);
+	modelCesped = glm::translate(modelCesped, glm::vec3(0.0, 0.0, 0.0));
+	modelCesped = glm::scale(modelCesped, glm::vec3(200.0, 0.001, 200.0));
+	// Se activa la textura del background
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureTerrainBackgroundID);
+	shaderTerrain.setInt("backgroundTexture", 0);
+	// Se activa la textura de tierra
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, textureTerrainRID);
+	shaderTerrain.setInt("rTexture", 1);
+	// Se activa la textura de hierba
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, textureTerrainGID);
+	shaderTerrain.setInt("gTexture", 2);
+	// Se activa la textura del camino
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, textureTerrainBID);
+	shaderTerrain.setInt("bTexture", 3);
+	// Se activa la textura del blend map
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, textureTerrainBlendMapID);
+	shaderTerrain.setInt("blendMapTexture", 4);
+	shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(40, 40)));
+	terrain.render();
+	shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	/*******************************************
+	 * Custom objects obj
+	 *******************************************/
+
+	 // Render muros de contencion de la pista
+	for (int i = 0; i < barrier1Position.size(); i++) {
+		barrier1Position[i].y = terrain.getHeightTerrain(barrier1Position[i].x, barrier1Position[i].z);
+		modelBarrier1.setPosition(barrier1Position[i]);
+		modelBarrier1.setScale(glm::vec3(0.4f, 0.1f, 0.025f));
+		modelBarrier1.setOrientation(glm::vec3(0.0f, barrier1Orientation[i], 0.0f));
+		modelBarrier1.render();
+	}
+	for (int i = 0; i < barrier1Position2.size(); i++) {
+		barrier1Position2[i].y = terrain.getHeightTerrain(barrier1Position2[i].x, barrier1Position2[i].z);
+		modelBarrier1.setPosition(barrier1Position2[i]);
+		modelBarrier1.setScale(glm::vec3(0.2f, 0.1f, 0.025f));
+		modelBarrier1.setOrientation(glm::vec3(0.0f, barrier1Orientation2[i], 0.0f));
+		modelBarrier1.render();
+	}
+
+	//Render portal
+	float portalY = terrain.getHeightTerrain(modelPortal.getPosition().x, modelPortal.getPosition().z) + 30.0f;
+	modelPortal.setPosition(glm::vec3(5.0f, portalY, -107.5f)); //540,40
+	modelPortal.setScale(glm::vec3(0.1f, 0.1f, 0.1f));
+	modelPortal.setOrientation(glm::vec3(0.0f, -80.0f, 0.0f));
+	modelPortal.render();
+
+	//Render portal2
+	modelMatrixPortal2[3][1] = terrain.getHeightTerrain(modelMatrixPortal2[3][0], modelMatrixPortal2[3][1]) + 30.0f;
+	glm::mat4 modelMatrixPortal2Core = glm::mat4(modelMatrixPortal2);
+	modelMatrixPortal2Core = glm::scale(modelMatrixPortal2Core, glm::vec3(0.1f, 0.1f, 0.1f));
+	//modelPortal2.setScale(glm::vec3(0.1f, 0.1f, 0.1f));
+	//portalY = terrain.getHeightTerrain(-67.7734375f, 10.46875f) + 30.0f;
+	//modelPortal2.setPosition(glm::vec3(-67.7734375f, portalY, 10.46875f));//0.0f)); //540,40
+	//modelPortal2.setOrientation(glm::vec3(0.0f, 160.0f, 0.0f));
+	modelPortal2.render(modelMatrixPortal2Core);
+
+	/**********************
+	* Importante se actualiza la posicion de los objetos con transparencia
+	***********************/
+		//Se actualiza el fighter
+	blendingSinOrden.find("fighter01")->second = glm::vec3(modelMatrixFighter01[3]);
+	blendingSinOrden.find("fighter02")->second = glm::vec3(modelMatrixFighter02[3]);
+	blendingSinOrden.find("fighter03")->second = glm::vec3(modelMatrixFighter03[3]);
+	blendingSinOrden.find("fighter04")->second = glm::vec3(modelMatrixFighter04[3]);
+
+	/*********************
+	* Se ordena los objetos con el canal alfa
+	**********************/
+	std::map<float, std::pair<std::string, glm::vec3>> blendingOrdenado;
+	std::map<std::string, glm::vec3>::iterator itBlend;
+	for (itBlend = blendingSinOrden.begin(); itBlend != blendingSinOrden.end(); itBlend++) {
+		float distanceFromView = glm::length(camera->getPosition() - itBlend->second);
+		blendingOrdenado[distanceFromView] = std::make_pair(itBlend->first, itBlend->second);
+	}
+
+	/***********************
+	* Render de las transparencias
+	************************/
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_CULL_FACE);
+	for (std::map<float, std::pair<std::string, glm::vec3>>::reverse_iterator it = blendingOrdenado.rbegin();
+		it != blendingOrdenado.rend(); it++) {
+		if (it->second.first.compare("fighter01") == 0) {
+			// Render for the fighter model
+			modelMatrixFighter01[3][1] = terrain.getHeightTerrain(modelMatrixFighter01[3][0], modelMatrixFighter01[3][2]) + 1.0f;
+			glm::mat4 modelMatrixFighter01Chasis = glm::mat4(modelMatrixFighter01);
+			//modelMatrixFighter01Chasis = glm::rotate(modelMatrixFighter01Chasis, glm::radians(270.0f), glm::vec3(1, 0, 0));
+			modelMatrixFighter01Chasis = glm::scale(modelMatrixFighter01Chasis, glm::vec3(0.05, 0.05, 0.05));//glm::vec3(0.15, 0.15, 0.025));//
+			modelFighter01.setAnimationIndex(0);
+			modelFighter01.render(modelMatrixFighter01Chasis);
+
+		}
+		if (it->second.first.compare("fighter02") == 0) {
+			// Render for the fighter model
+			modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
+			glm::mat4 modelMatrixFighter02Chasis = glm::mat4(modelMatrixFighter02);
+			//modelMatrixFighter02Chasis = glm::rotate(modelMatrixFighter02Chasis, glm::radians(270.0f), glm::vec3(1, 0, 0));
+			modelMatrixFighter02Chasis = glm::rotate(modelMatrixFighter02Chasis, glm::radians(orientationPathNPC[checkpointFighter02]), glm::vec3(0, 1, 0));
+			modelMatrixFighter02Chasis = glm::scale(modelMatrixFighter02Chasis, glm::vec3(0.05, 0.05, 0.05)); //glm::vec3(0.15, 0.15, 0.025));//
+			modelFighter02.setAnimationIndex(0);
+			modelFighter02.render(modelMatrixFighter02Chasis);
+
+		}
+		if (it->second.first.compare("fighter03") == 0) {
+			// Render for the fighter model
+			modelMatrixFighter03[3][1] = terrain.getHeightTerrain(modelMatrixFighter03[3][0], modelMatrixFighter03[3][2]) + 1.0f;
+			glm::mat4 modelMatrixFighter03Chasis = glm::mat4(modelMatrixFighter03);
+			//modelMatrixFighter02Chasis = glm::rotate(modelMatrixFighter02Chasis, glm::radians(270.0f), glm::vec3(1, 0, 0));
+			modelMatrixFighter03Chasis = glm::rotate(modelMatrixFighter03Chasis, glm::radians(orientationPathNPC[checkpointFighter03]), glm::vec3(0, 1, 0));
+			modelMatrixFighter03Chasis = glm::scale(modelMatrixFighter03Chasis, glm::vec3(0.05, 0.05, 0.05)); //glm::vec3(0.15, 0.15, 0.025));//
+			modelFighter03.setAnimationIndex(0);
+			modelFighter03.render(modelMatrixFighter03Chasis);
+
+		}
+		if (it->second.first.compare("fighter04") == 0) {
+			// Render for the fighter model
+			modelMatrixFighter04[3][1] = terrain.getHeightTerrain(modelMatrixFighter04[3][0], modelMatrixFighter04[3][2]) + 1.0f;
+			glm::mat4 modelMatrixFighter04Chasis = glm::mat4(modelMatrixFighter04);
+			//modelMatrixFighter02Chasis = glm::rotate(modelMatrixFighter02Chasis, glm::radians(270.0f), glm::vec3(1, 0, 0));
+			modelMatrixFighter04Chasis = glm::rotate(modelMatrixFighter04Chasis, glm::radians(orientationPathNPC[checkpointFighter04]), glm::vec3(0, 1, 0));
+			modelMatrixFighter04Chasis = glm::scale(modelMatrixFighter04Chasis, glm::vec3(0.05, 0.05, 0.05)); //glm::vec3(0.15, 0.15, 0.025));//
+			modelFighter04.setAnimationIndex(0);
+			modelFighter04.render(modelMatrixFighter04Chasis);
+
+		}
+		/*
+		else if (renderParticles && it->second.first.compare("fountain") == 0) {
+			/**********
+			 * Init Render particles systems
+			 *
+			glm::mat4 modelMatrixParticlesFountain = glm::mat4(1.0);
+			modelMatrixParticlesFountain = glm::translate(modelMatrixParticlesFountain, glm::vec3(5.0f, 0.0f, -80.46875f));//it->second.second);
+			modelMatrixParticlesFountain[3][1] = terrain.getHeightTerrain(modelMatrixParticlesFountain[3][0], modelMatrixParticlesFountain[3][2]) + 0.36 * 10.0;
+			modelMatrixParticlesFountain = glm::scale(modelMatrixParticlesFountain, glm::vec3(3.0, 3.0, 3.0));
+			currTimeParticlesAnimation = TimeManager::Instance().GetTime();
+			if (currTimeParticlesAnimation - lastTimeParticlesAnimation > 10.0)
+				lastTimeParticlesAnimation = currTimeParticlesAnimation;
+			//glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+			// Set the point size
+			glPointSize(10.0f);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, textureParticleFountainID);
+			shaderParticlesFountain.turnOn();
+			shaderParticlesFountain.setFloat("Time", float(currTimeParticlesAnimation - lastTimeParticlesAnimation));
+			shaderParticlesFountain.setFloat("ParticleLifetime", 3.5f);
+			shaderParticlesFountain.setInt("ParticleTex", 0);
+			shaderParticlesFountain.setVectorFloat3("Gravity", glm::value_ptr(glm::vec3(0.0f, -0.3f, 0.0f)));
+			shaderParticlesFountain.setMatrix4("model", 1, false, glm::value_ptr(modelMatrixParticlesFountain));
+			glBindVertexArray(VAOParticles);
+			glDrawArrays(GL_POINTS, 0, nParticles);
+			glDepthMask(GL_TRUE);
+			//glEnable(GL_DEPTH_TEST);
+			shaderParticlesFountain.turnOff();
+			/**********
+			 * End Render particles systems
+			 *
+		}*/
+		else if (renderParticles && it->second.first.compare("fire") == 0) {
+			/**********
+			 * Init Render particles systems
+			 */
+			lastTimeParticlesAnimationFire = currTimeParticlesAnimationFire;
+			currTimeParticlesAnimationFire = TimeManager::Instance().GetTime();
+
+			shaderParticlesFire.setInt("Pass", 1);
+			shaderParticlesFire.setFloat("Time", currTimeParticlesAnimationFire);
+			shaderParticlesFire.setFloat("DeltaT", currTimeParticlesAnimationFire - lastTimeParticlesAnimationFire);
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_1D, texId);
+			glEnable(GL_RASTERIZER_DISCARD);
+			glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, feedback[drawBuf]);
+			glBeginTransformFeedback(GL_POINTS);
+			glBindVertexArray(particleArray[1 - drawBuf]);
+			glVertexAttribDivisor(0, 0);
+			glVertexAttribDivisor(1, 0);
+			glVertexAttribDivisor(2, 0);
+			glDrawArrays(GL_POINTS, 0, nParticlesFire);
+			glEndTransformFeedback();
+			glDisable(GL_RASTERIZER_DISCARD);
+
+			shaderParticlesFire.setInt("Pass", 2);
+			glm::mat4 modelFireParticles = glm::mat4(1.0);
+			modelFireParticles = glm::translate(modelFireParticles, glm::vec3(15.234375f, 0.0f, -76.5625f));//it->second.second);//590,120
+			modelFireParticles[3][1] = terrain.getHeightTerrain(modelFireParticles[3][0], modelFireParticles[3][2]);
+			modelFireParticles = glm::rotate(modelFireParticles, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+			shaderParticlesFire.setMatrix4("model", 1, false, glm::value_ptr(modelFireParticles));
+
+			shaderParticlesFire.turnOn();
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, textureParticleFireID);
+			glDepthMask(GL_FALSE);
+			glBindVertexArray(particleArray[drawBuf]);
+			glVertexAttribDivisor(0, 1);
+			glVertexAttribDivisor(1, 1);
+			glVertexAttribDivisor(2, 1);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 6, nParticlesFire);
+			glBindVertexArray(0);
+			glDepthMask(GL_TRUE);
+			drawBuf = 1 - drawBuf;
+			shaderParticlesFire.turnOff();
+
+			/****************************+
+			 * Open AL sound data
+			 */
+			source1Pos[0] = modelFireParticles[3].x;
+			source1Pos[1] = modelFireParticles[3].y;
+			source1Pos[2] = modelFireParticles[3].z;
+			alSourcefv(source[1], AL_POSITION, source1Pos);
+
+			/**********
+			 * End Render particles systems
+			 */
+		}
+	}
+	glEnable(GL_CULL_FACE);
+	//glDisable(GL_BLEND);
 }
 
 int main(int argc, char **argv) {
