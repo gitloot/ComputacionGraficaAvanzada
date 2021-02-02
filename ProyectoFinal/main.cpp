@@ -22,7 +22,7 @@
 
 // Model geometric includes
 #include "Headers/Sphere.h"
-#include "Headers/Cylinder.h"
+//#include "Headers/Cylinder.h"
 #include "Headers/Box.h"
 #include "Headers/FirstPersonCamera.h"
 #include "Headers/ThirdPersonCamera.h"
@@ -84,22 +84,22 @@ std::shared_ptr<FirstPersonCamera> fpscamera(new FirstPersonCamera());
 float distanceFromTarget = 2.0;//7.0;
 
 //Variables adicionales
+
+//Para el calculo de la distancia de un objetivo a un punto
 float distance = 0.0f;
 glm::vec3 objetivoPos;
 glm::vec3 objetoPos;
 glm::vec3 diferencia;
 
+//Variables que determinan la posición y velocidad de los modelos que son NPC
 int checkpointFighter02 = 0;
-//float fighter02Rotation = 180.0f;
 float fighter02Speed = 5.0f;
 int checkpointFighter03 = 0;
-//float fighter02Rotation = 180.0f;
 float fighter03Speed = 4.0f;
 int checkpointFighter04 = 0;
-//float fighter02Rotation = 180.0f;
 float fighter04Speed = 4.5f;
 
-//Pathfiding para los NPC
+//Pathfiding de los NPC
 std::vector<glm::vec3> pathNPC = {
 	glm::vec3(66.015625f, 0.0f, -25.78125f),//850,380 0
 	glm::vec3(61.1328125f, 0.0f, -41.40625f),//825, 300 1 
@@ -118,6 +118,7 @@ std::vector<glm::vec3> pathNPC = {
 	glm::vec3(68.9453125f, 0.0f, -20.8984375f),//865, 405 14
 };
 
+//Orientacion del modelo de tipo NPC en determinado punto
 std::vector<float> orientationPathNPC = {
 	5.0f,//205.0f,//155.0f,//850,380 0  
 	25.0f,//220.f,//140.0f,//825, 300 1 
@@ -136,7 +137,7 @@ std::vector<float> orientationPathNPC = {
 	5.0f//865, 405 14
 };
 
-//Para prevenir el salto en el movimiento de la camara cuando el angulo de vista es 0
+//Para el control en el angulo de movimiento de la camara 
 float angle = 0.0f;
 float angleAux = 0.0f;
 
@@ -171,12 +172,19 @@ GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
 GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
 GL_TEXTURE_CUBE_MAP_NEGATIVE_Z };
 
-std::string fileNames[6] = { "../Textures/mp_bloodvalley/blood-valley_ft.tga",
-		"../Textures/mp_bloodvalley/blood-valley_bk.tga",
-		"../Textures/mp_bloodvalley/blood-valley_up.tga",
-		"../Textures/mp_bloodvalley/blood-valley_dn.tga",
-		"../Textures/mp_bloodvalley/blood-valley_rt.tga",
-		"../Textures/mp_bloodvalley/blood-valley_lf.tga" };
+std::string fileNames[6] = { "../Textures/skybox2/skybox2_px.jpg",
+							"../Textures/skybox2/skybox2_nx.jpg",  //
+							"../Textures/skybox2/skybox2_py.jpg",
+							"../Textures/skybox2/skybox2_ny.jpg",
+							"../Textures/skybox2/skybox2_pz.jpg",  //
+							"../Textures/skybox2/skybox2_nz.jpg" };
+
+/* "../Textures/mp_bloodvalley/blood-valley_ft.tga",
+	"../Textures/mp_bloodvalley/blood-valley_bk.tga",
+	"../Textures/mp_bloodvalley/blood-valley_up.tga",
+	"../Textures/mp_bloodvalley/blood-valley_dn.tga",
+	"../Textures/mp_bloodvalley/blood-valley_rt.tga",
+	"../Textures/mp_bloodvalley/blood-valley_lf.tga" };*/
 
 bool exitApp = false;
 int lastMousePosX, offsetX = 0;
@@ -189,7 +197,7 @@ glm::mat4 modelMatrixFighter03 = glm::mat4(1.0);
 glm::mat4 modelMatrixFighter04 = glm::mat4(1.0);
 glm::mat4 modelMatrixPortal2 = glm::mat4(1.0);
 
-// Model barrier type 1 positions
+// Model barrier posiciones y orientacion en puntos especificos
 std::vector<glm::vec3> barrier1Position = {
 //Barrera externa
 glm::vec3(30.859375, 0, -82.421875), // (670,90)
@@ -200,6 +208,7 @@ glm::vec3(-43.359375,0,74.8046875), glm::vec3(-62.890625,0,54.296875), glm::vec3
 glm::vec3(-76.5625,0,-2.34375), glm::vec3(-73.6328125,0,-24.8046875), glm::vec3(-70.703125,0,-40.4296875), // (120, 500) (135,385) (150, 305)
 glm::vec3(-52.1484375,0,-66.796875),glm::vec3(-39.453125,0,-75.5859375),  // (245, 170) (310,125)
 }; 
+
 std::vector<float> barrier1Orientation = { 
 //Barrera externa
 333.0f,
@@ -220,6 +229,7 @@ glm::vec3(-8.203125, 0, 66.9921875), glm::vec3(-25.78125, 0, 58.203125), glm::ve
 glm::vec3(-53.125, 0, 23.046875), glm::vec3(-59.9609375, 0, 2.5390625), glm::vec3(-56.0546875, 0, -16.9921875), // (240,630) (205,525) (225,425) 
 glm::vec3(-51.171875, 0, -28.7109375), glm::vec3(-39.453125, 0, -47.265625), glm::vec3(-27.734375, 0, -58.984375) // (250,365) (310,270) (370,210)
 };
+
 std::vector<float> barrier1Orientation2 = {
 //Barrera interna
 325.0f, 315.0f, 298.5f,
@@ -534,14 +544,6 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 
 	// Inicialización de los shaders
 	shader.initialize("../Shaders/colorShader.vs", "../Shaders/colorShader.fs");
-	
-	//shaderSkybox.initialize("../Shaders/skyBox.vs", "../Shaders/skyBox.fs");
-	//shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation.vs", "../Shaders/multipleLights.fs");
-	//shaderTerrain.initialize("../Shaders/terrain.vs", "../Shaders/terrain.fs");
-	
-	//shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation_fog.vs", "../Shaders/multipleLights_fog.fs");
-	//shaderTerrain.initialize("../Shaders/terrain_fog.vs", "../Shaders/terrain_fog.fs");
-
 	shaderSkybox.initialize("../Shaders/skyBox.vs", "../Shaders/skyBox_fog.fs");
 	shaderMulLighting.initialize("../Shaders/iluminacion_textura_animation_shadow.vs", "../Shaders/multipleLights_shadow.fs");
 	shaderTerrain.initialize("../Shaders/terrain_shadow.vs", "../Shaders/terrain_shadow.fs");
@@ -630,7 +632,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 			std::cout << "Failed to load texture" << std::endl;
 		skyboxTexture.freeImage(bitmap);
 	}
-
+	/*
 	// Definiendo la textura a utilizar
 	Texture textureCesped("../Textures/cesped.jpg");
 	// Carga el mapa de bits (FIBITMAP es el tipo de dato de la libreria)
@@ -762,7 +764,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 		std::cout << "Failed to load texture" << std::endl;
 	// Libera la memoria de la textura
 	textureHighway.freeImage(bitmap);
-
+	
 	// Definiendo la textura a utilizar
 	Texture textureLandingPad("../Textures/landingPad.jpg");
 	// Carga el mapa de bits (FIBITMAP es el tipo de dato de la libreria)
@@ -795,7 +797,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 		std::cout << "Failed to load texture" << std::endl;
 	// Libera la memoria de la textura
 	textureLandingPad.freeImage(bitmap);
-
+	*/
 	// Definiendo la textura a utilizar
 	Texture textureTerrainBackground("../Textures/lava.png");
 	// Carga el mapa de bits (FIBITMAP es el tipo de dato de la libreria)
@@ -958,7 +960,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	}
 	else
 		std::cout << "Failed to load texture" << std::endl;
-
+	/*
 	Texture textureParticlesFountain("../Textures/bluewater.png");
 	bitmap = textureParticlesFountain.loadImage();
 	data = textureParticlesFountain.convertToData(bitmap, imageWidth, imageHeight);
@@ -978,7 +980,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	else
 		std::cout << "Failed to load texture" << std::endl;
 	textureParticlesFountain.freeImage(bitmap);
-
+	*/
 	Texture textureParticleFire("../Textures/fire.png");
 	bitmap = textureParticleFire.loadImage();
 	data = textureParticleFire.convertToData(bitmap, imageWidth, imageHeight);
@@ -1111,6 +1113,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	else {
 		printf("init - no errors after alGenSources\n");
 	}
+	//FIghter01 usuario
 	alSourcef(source[0], AL_PITCH, 1.0f);
 	alSourcef(source[0], AL_GAIN, 3.0f);
 	alSourcefv(source[0], AL_POSITION, source0Pos);
@@ -1118,7 +1121,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	alSourcei(source[0], AL_BUFFER, buffer[0]);
 	alSourcei(source[0], AL_LOOPING, AL_TRUE);
 	alSourcef(source[0], AL_MAX_DISTANCE, 2000);
-
+	//Fuego
 	alSourcef(source[1], AL_PITCH, 1.0f);
 	alSourcef(source[1], AL_GAIN, 0.3f);
 	alSourcefv(source[1], AL_POSITION, source1Pos);
@@ -1126,7 +1129,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	alSourcei(source[1], AL_BUFFER, buffer[1]);
 	alSourcei(source[1], AL_LOOPING, AL_TRUE);
 	alSourcef(source[1], AL_MAX_DISTANCE, 2000);
-
+	//Fighter02 NPC
 	alSourcef(source[2], AL_PITCH, 1.0f);
 	alSourcef(source[2], AL_GAIN, 3.0f);
 	alSourcefv(source[2], AL_POSITION, source2Pos);
@@ -1134,7 +1137,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	alSourcei(source[2], AL_BUFFER, buffer[2]);
 	alSourcei(source[2], AL_LOOPING, AL_TRUE);
 	alSourcef(source[2], AL_MAX_DISTANCE, 500);
-
+	//Fighter03 NPC
 	alSourcef(source[3], AL_PITCH, 1.0f);
 	alSourcef(source[3], AL_GAIN, 3.0f);
 	alSourcefv(source[3], AL_POSITION, source3Pos);
@@ -1142,7 +1145,7 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	alSourcei(source[3], AL_BUFFER, buffer[3]);
 	alSourcei(source[3], AL_LOOPING, AL_TRUE);
 	alSourcef(source[3], AL_MAX_DISTANCE, 2000);
-
+	//Fighter04 NPC
 	alSourcef(source[4], AL_PITCH, 1.0f);
 	alSourcef(source[4], AL_GAIN, 3.0f);
 	alSourcefv(source[4], AL_POSITION, source4Pos);
@@ -1202,13 +1205,6 @@ void destroy() {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	glDeleteTextures(1, &skyboxTextureID);
 
-	// Remove the buffer of the fountain particles
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glDeleteBuffers(1, &initVel);
-	glDeleteBuffers(1, &startTime);
-	glBindVertexArray(0);
-	glDeleteVertexArrays(1, &VAOParticles);
-
 	// Remove the buffer of the fire particles
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDeleteBuffers(2, posBuf);
@@ -1218,6 +1214,13 @@ void destroy() {
 	glDeleteTransformFeedbacks(2, feedback);
 	glBindVertexArray(0);
 	glDeleteVertexArrays(1, &VAOParticlesFire);
+	/*
+	// Remove the buffer of the fountain particles
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDeleteBuffers(1, &initVel);
+	glDeleteBuffers(1, &startTime);
+	glBindVertexArray(0);
+	glDeleteVertexArrays(1, &VAOParticles);*/
 }
 
 void reshapeCallback(GLFWwindow *Window, int widthRes, int heightRes) {
@@ -1407,16 +1410,12 @@ void applicationLoop() {
 		****************************************/
 		
 		angle = angle - angleTarget;
-		//std::cout << "angle: " << angle << std::endl;
 		if (state == 1) {
 			if (angle > 0) {
 				angle = angleTarget;
 				angleTarget = -angleTarget;
 				angleAux = angleTarget;
-			}/*
-			else if(angle == 0){
-				angleTarget = angleAux;
-			}*/
+			}
 			else{
 				angle = angleTarget;
 				angleAux = angleTarget;
@@ -1428,11 +1427,7 @@ void applicationLoop() {
 				angle = angleTarget;
 				angleTarget = -angleTarget;
 				angleAux = angleTarget;
-			}/*
-			else if (angle == 0) {
-				std::cout << "menor: " <<(angleAux)<< std::endl;
-				angleTarget = angleAux;
-			}*/
+			}
 			else {
 				angle = angleTarget;
 				angleAux = angleTarget;
@@ -1487,15 +1482,15 @@ void applicationLoop() {
 			glm::value_ptr(view));
 		shaderTerrain.setMatrix4("lightSpaceMatrix", 1, false,
 			glm::value_ptr(lightSpaceMatrix));
-		// Settea la matriz de vista y projection al shader para el fountain
-		shaderParticlesFountain.setMatrix4("projection", 1, false,
-			glm::value_ptr(projection));
-		shaderParticlesFountain.setMatrix4("view", 1, false,
-			glm::value_ptr(view));
 		// Settea la matriz de vista y projection al shader para el fuego
 		shaderParticlesFire.setInt("Pass", 2);
 		shaderParticlesFire.setMatrix4("projection", 1, false, glm::value_ptr(projection));
 		shaderParticlesFire.setMatrix4("view", 1, false, glm::value_ptr(view));
+		// Settea la matriz de vista y projection al shader para el fountain
+		/*shaderParticlesFountain.setMatrix4("projection", 1, false,
+			glm::value_ptr(projection));
+		shaderParticlesFountain.setMatrix4("view", 1, false,
+			glm::value_ptr(view));*/
 
 		/******************************************
 		* Propiedades de la neblina
@@ -1957,6 +1952,10 @@ void prepareScene() {
 	modelFighter01.setShader(&shaderMulLighting);
 
 	modelFighter02.setShader(&shaderMulLighting);
+
+	modelFighter03.setShader(&shaderMulLighting);
+
+	modelFighter04.setShader(&shaderMulLighting);
 }
 
 void prepareDepthScene() {
@@ -1967,6 +1966,10 @@ void prepareDepthScene() {
 	modelFighter01.setShader(&shaderDepth);
 
 	modelFighter02.setShader(&shaderDepth);
+
+	modelFighter03.setShader(&shaderDepth);
+
+	modelFighter04.setShader(&shaderDepth);
 }
 
 void renderScene(bool renderParticles) {
@@ -2000,7 +2003,7 @@ void renderScene(bool renderParticles) {
 	terrain.render();
 	shaderTerrain.setVectorFloat2("scaleUV", glm::value_ptr(glm::vec2(0, 0)));
 	glBindTexture(GL_TEXTURE_2D, 0);
-
+	
 	/*******************************************
 	 * Custom objects obj
 	 *******************************************/
