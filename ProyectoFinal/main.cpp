@@ -1865,7 +1865,6 @@ void applicationLoop() {
 		if (posFighter01 != posActual) {
 			std::cout << "EL JUGADOR SE ENCUETRA EN LA POSICION: " << posFighter01 << std::endl;
 			posActual = posFighter01;
-
 		}
 
 		//Fighter02
