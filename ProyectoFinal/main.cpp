@@ -91,13 +91,21 @@ glm::vec3 objetivoPos;
 glm::vec3 objetoPos;
 glm::vec3 diferencia;
 
-//Variables que determinan la posición y velocidad de los modelos que son NPC
+//Variables que determinan la posición y velocidad de los modelos de las naves
+int fighter01Speed = 1;
+int checkpointFighter01 = 0;
 int checkpointFighter02 = 0;
 float fighter02Speed = 5.0f;
 int checkpointFighter03 = 0;
 float fighter03Speed = 4.0f;
 int checkpointFighter04 = 0;
 float fighter04Speed = 4.5f;
+int posFighter01 = 1;
+int posActual = 4;
+int lapFighter01 = 1;
+int lapFighter02 = 1;
+int lapFighter03 = 1;
+int lapFighter04 = 1;
 
 //Pathfiding de los NPC
 std::vector<glm::vec3> pathNPC = {
@@ -335,6 +343,7 @@ bool processInput(bool continueApplication = true);
 void prepareScene();
 void prepareDepthScene();
 void renderScene(bool renderParticles = true);
+void determinarPos();
 
 void initParticleBuffers() {
 	// Generate the buffers
@@ -1277,6 +1286,7 @@ bool processInput(bool continueApplication) {
 	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && enableCameraChange) {
 		enableCameraChange = false;
 		enableFirstCamera = !enableFirstCamera;
+		fpscamera->setPosition(camera->getPosition());
 	}
 	else if (glfwGetKey(window, GLFW_KEY_P) == GLFW_RELEASE)
 		enableCameraChange = true;
@@ -1307,18 +1317,18 @@ bool processInput(bool continueApplication) {
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 1;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5 * fighter01Speed));
 		modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(1.0f), glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 0;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.5 * fighter01Speed));
 		modelMatrixFighter01 = glm::rotate(modelMatrixFighter01, glm::radians(-1.0f), glm::vec3(0, 1, 0));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !enableFirstCamera) {
 		state = 2;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.75));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, 0.75 * fighter01Speed));
 	}
 	else if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS && !enableFirstCamera)
 	{
@@ -1333,7 +1343,7 @@ bool processInput(bool continueApplication) {
 	else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !enableFirstCamera)
 	{
 		state = 2;
-		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, -0.75));
+		modelMatrixFighter01 = glm::translate(modelMatrixFighter01, glm::vec3(0.0, 0.0, -0.75 * fighter01Speed));
 	}
 
 	glfwPollEvents();
@@ -1437,10 +1447,20 @@ void applicationLoop() {
 		camera->setCameraTarget(target);
 		camera->setAngleTarget(angleTarget);
 		camera->updateCamera();
-		if (enableFirstCamera == true)
+		if (enableFirstCamera == true) {
 			view = fpscamera->getViewMatrix();
-		else
+			fighter01Speed = 0;
+			fighter02Speed = 0;
+			fighter03Speed = 0;
+			fighter04Speed = 0;
+		}
+		else {
 			view = camera->getViewMatrix();
+			fighter01Speed = 1;
+			fighter02Speed = 5.0f;
+			fighter03Speed = 4.0f;
+			fighter04Speed = 4.5f;
+		}
 
 		shadowBox->update(screenWidth, screenHeight);
 		glm::vec3 centerBox = shadowBox->getCenter();
@@ -1815,8 +1835,39 @@ void applicationLoop() {
 		}
 
 		/******************************
-		* Rutina de los NPC
+		* Rutina de los NPC y calculo de posicion
 		******************************/
+		
+		//Fighter01
+		objetivoPos = pathNPC[checkpointFighter01]; 
+		objetoPos = modelMatrixFighter01[3];
+		distance = (objetoPos.x - objetivoPos.x) * (objetoPos.x - objetivoPos.x) + (objetoPos.z - objetivoPos.z) * (objetoPos.z - objetivoPos.z);
+		if (distance < 50.0f) {
+			checkpointFighter01++;
+			if (checkpointFighter01 > pathNPC.size() - 1) {
+				lapFighter01++;
+				checkpointFighter01 = 0;
+			}
+		}
+		else {
+			distance = (-objetoPos.x - objetivoPos.x) * (-objetoPos.x - objetivoPos.x) + (-objetoPos.z - objetivoPos.z) * (-objetoPos.z - objetivoPos.z);
+			if (distance < 50.0f) {
+				checkpointFighter01++;
+				if (checkpointFighter01 > pathNPC.size() - 1) {
+					checkpointFighter01 = 0;
+					lapFighter01++;
+				}
+			}
+		}
+
+		determinarPos();
+
+		if (posFighter01 != posActual) {
+			std::cout << "EL JUGADOR SE ENCUETRA EN LA POSICION: " << posFighter01 << std::endl;
+			posActual = posFighter01;
+
+		}
+
 		//Fighter02
 		objetivoPos = pathNPC[checkpointFighter02];
 		objetoPos = modelMatrixFighter02[3];
@@ -1829,8 +1880,10 @@ void applicationLoop() {
 				modelMatrixFighter02[3][1] = terrain.getHeightTerrain(modelMatrixFighter02[3][0], modelMatrixFighter02[3][2]) + 1.0f;
 			}
 			checkpointFighter02++;
-			if (checkpointFighter02 > pathNPC.size()-1)
+			if (checkpointFighter02 > pathNPC.size() - 1) {
+				lapFighter02++;
 				checkpointFighter02 = 0;
+			}
 		}
 		else {
 			diferencia = objetoPos - objetivoPos;
@@ -1850,8 +1903,10 @@ void applicationLoop() {
 				modelMatrixFighter03[3][1] = terrain.getHeightTerrain(modelMatrixFighter03[3][0], modelMatrixFighter03[3][2]) + 1.0f;
 			}
 			checkpointFighter03++;
-			if (checkpointFighter03 > pathNPC.size() - 1)
+			if (checkpointFighter03 > pathNPC.size() - 1) {
+				lapFighter03++;
 				checkpointFighter03 = 0;
+			}
 		}
 		else {
 			diferencia = objetoPos - objetivoPos;
@@ -1871,8 +1926,10 @@ void applicationLoop() {
 				modelMatrixFighter04[3][1] = terrain.getHeightTerrain(modelMatrixFighter04[3][0], modelMatrixFighter04[3][2]) + 1.0f;
 			}
 			checkpointFighter04++;
-			if (checkpointFighter04 > pathNPC.size() - 1)
+			if (checkpointFighter04 > pathNPC.size() - 1) {
+				lapFighter04++;
 				checkpointFighter04 = 0;
+			}
 		}
 		else {
 			diferencia = objetoPos - objetivoPos;
@@ -2204,6 +2261,225 @@ void renderScene(bool renderParticles) {
 	}
 	glEnable(GL_CULL_FACE);
 	//glDisable(GL_BLEND);
+}
+
+void determinarPos() {
+	
+	if (lapFighter01 > lapFighter02) {
+		if (lapFighter01 > lapFighter03) {
+			/****************
+			P1 > P2 P3 P4
+			*****************/
+			if (lapFighter01 > lapFighter04) {
+				posFighter01 = 1;
+			}
+			else {
+				/****************
+				P1 > P2 P3 P4
+				*****************/
+				if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+					posFighter01 = 1;
+				}
+				/****************
+				P4 > P1 > P2 P3
+				*****************/
+				else{
+					posFighter01 = 2;
+				}
+			}
+		}
+		else {
+			if (lapFighter03 == lapFighter03 && checkpointFighter01 > checkpointFighter03) {
+				/****************
+			    P1 > P2 P3 P4
+			    *****************/
+				if (lapFighter01 > lapFighter04) {
+					posFighter01 = 1;
+				}
+				else {
+					/****************
+					P1 > P2 P3 P4
+					*****************/
+					if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+						posFighter01 = 1;
+					}
+					/****************
+					P4 > P1 > P2 P3
+					*****************/
+					else {
+						posFighter01 = 2;
+					}
+				}
+
+			}
+			else {
+				/****************
+			    P3 > P1 > P2 P4
+			    *****************/
+				if (lapFighter01 > lapFighter04) {
+					posFighter01 = 2;
+				}
+				else {
+					/****************
+					P3 > P1 > P2 P4
+					*****************/
+					if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+						posFighter01 = 2;
+					}
+					/****************
+					P4 P3 > P1 > P2
+					*****************/
+					else {
+						posFighter01 = 3;
+					}
+				}
+			}
+		}
+	}
+	else {
+		if (lapFighter01 == lapFighter02 && checkpointFighter01 > checkpointFighter02) {
+			if (lapFighter01 > lapFighter03) {
+				/****************
+				P1 > P2 P3 P4
+				*****************/
+				if (lapFighter01 > lapFighter04) {
+					posFighter01 = 1;
+				}
+				else {
+					/****************
+					P1 > P2 P3 P4
+					*****************/
+					if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+						posFighter01 = 1;
+					}
+					/****************
+					P4 > P1 > P2 P3
+					*****************/
+					else {
+						posFighter01 = 2;
+					}
+				}
+			}
+			else {
+				if (lapFighter03 == lapFighter03 && checkpointFighter01 > checkpointFighter03) {
+					/****************
+					P1 > P2 P3 P4
+					*****************/
+					if (lapFighter01 > lapFighter04) {
+						posFighter01 = 1;
+					}
+					else {
+						/****************
+						P1 > P2 P3 P4
+						*****************/
+						if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+							posFighter01 = 1;
+						}
+						/****************
+						P4 > P1 > P2 P3
+						*****************/
+						else {
+							posFighter01 = 2;
+						}
+					}
+
+				}
+				else {
+					/****************
+					P3 > P1 > P2 P4
+					*****************/
+					if (lapFighter01 > lapFighter04) {
+						posFighter01 = 2;
+					}
+					else {
+						/****************
+						P3 > P1 > P2 P4
+						*****************/
+						if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+							posFighter01 = 2;
+						}
+						/****************
+						P4 P3 > P1 > P2
+						*****************/
+						else {
+							posFighter01 = 3;
+						}
+					}
+				}
+			}
+		}
+		else {
+			if (lapFighter01 > lapFighter03) {
+				/****************
+				P2 > P1 > P3 P4
+				*****************/
+				if (lapFighter01 > lapFighter04) {
+					posFighter01 = 2;
+				}
+				else {
+					/****************
+					P2 > P1 > P3 P4
+					*****************/
+					if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+						posFighter01 = 2;
+					}
+					/****************
+					P2 P4 > P1 > P3
+					*****************/
+					else {
+						posFighter01 = 3;
+					}
+				}
+			}
+			else {
+				if (lapFighter03 == lapFighter03 && checkpointFighter01 > checkpointFighter03) {
+					/****************
+					P2 > P1 > P3 P4
+					*****************/
+					if (lapFighter01 > lapFighter04) {
+						posFighter01 = 2;
+					}
+					else {
+						/****************
+						P2 > P1 > P3 P4
+						*****************/
+						if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+							posFighter01 = 2;
+						}
+						/****************
+						P4 P2 > P1 > P3
+						*****************/
+						else {
+							posFighter01 = 3;
+						}
+					}
+
+				}
+				else {
+					/****************
+					P3 P2 > P1 > P4
+					*****************/
+					if (lapFighter01 > lapFighter04) {
+						posFighter01 = 3;
+					}
+					else {
+						/****************
+						P3 P2 > P1 > P4
+						*****************/
+						if (lapFighter01 == lapFighter04 && checkpointFighter01 > checkpointFighter04) {
+							posFighter01 = 3;
+						}
+						/****************
+						P4 P3 P2 > P1 
+						*****************/
+						else {
+							posFighter01 = 4;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 int main(int argc, char **argv) {
